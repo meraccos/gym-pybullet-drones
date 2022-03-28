@@ -57,7 +57,7 @@ if __name__ == "__main__":
     else:
         ray.shutdown()
         ray.init(ignore_reinit_error=True)
-        register_env("takeoff-aviary-v0", lambda _: TakeoffAviary())
+        _env("takeoff-aviary-v0", lambda _: TakeoffAviary())
         config = ppo.DEFAULT_CONFIG.copy()
         config["num_workers"] = 2
         config["framework"] = "torch"

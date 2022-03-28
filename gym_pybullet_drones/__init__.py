@@ -29,6 +29,12 @@ register(
 )
 
 register(
+    id='landing-aviary-v0',
+    entry_point='gym_pybullet_drones.envs.single_agent_rl:LandingAviary',
+)
+
+
+register(
     id='hover-aviary-v0',
     entry_point='gym_pybullet_drones.envs.single_agent_rl:HoverAviary',
 )

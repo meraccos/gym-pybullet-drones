@@ -264,6 +264,8 @@ class BaseAviary(gym.Env):
         self._updateAndStoreKinematicInformation()
         #### Start video recording #################################
         self._startVideoRecording()
+        ### reset position ###
+        self._resetPosition()
         #### Return the initial observation ########################
         return self._computeObs()
     
@@ -1094,3 +1096,9 @@ class BaseAviary(gym.Env):
 
         """
         raise NotImplementedError
+    
+    def _resetPosition(self):
+        """ Resets positions of the drone.
+        
+         """
+        pass
