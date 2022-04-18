@@ -19,8 +19,8 @@ class LandingAviary(BaseSingleAgentAviary):
                  aggregate_phy_steps: int=1,
                  gui=False,
                  record=False, 
-                 obs: ObservationType=ObservationType.KIN,
-                 act: ActionType=ActionType.VEL
+                 obs: ObservationType=ObservationType.RGB,
+                 act: ActionType=ActionType.VEL,
                  ):
         """Initialization of a single agent RL environment.
 
@@ -60,7 +60,7 @@ class LandingAviary(BaseSingleAgentAviary):
                          gui=gui,
                          record=record,
                          obs=obs,
-                         act=act
+                         act=act,
                          )
     
     def _computeReward(self):

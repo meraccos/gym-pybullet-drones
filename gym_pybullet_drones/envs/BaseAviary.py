@@ -156,7 +156,8 @@ class BaseAviary(gym.Env):
             self.IMG_RES = np.array([64, 48])
             self.IMG_FRAME_PER_SEC = 24
             self.IMG_CAPTURE_FREQ = int(self.SIM_FREQ/self.IMG_FRAME_PER_SEC)
-            self.rgb = np.zeros(((self.NUM_DRONES, self.IMG_RES[1], self.IMG_RES[0], 4)))
+            #TODO hardcode for now
+            self.rgb = np.zeros(((self.NUM_DRONES, 4, self.IMG_RES[0], self.IMG_RES[0])))
             self.dep = np.ones(((self.NUM_DRONES, self.IMG_RES[1], self.IMG_RES[0])))
             self.seg = np.zeros(((self.NUM_DRONES, self.IMG_RES[1], self.IMG_RES[0])))
             if self.IMG_CAPTURE_FREQ%self.AGGR_PHY_STEPS != 0:
@@ -609,7 +610,12 @@ class BaseAviary(gym.Env):
                                                  flags=SEG_FLAG,
                                                  physicsClientId=self.CLIENT
                                                  )
-        rgb = np.reshape(rgb, (h, w, 4))
+        #add padding
+        #print(rgb.shape)
+        rgb = np.pad(rgb, ((8,8),(0,0),(0,0)), 'constant')                                
+        #rgb = np.reshape(rgb, (h, w, 4))
+        #print(rgb.shape)
+        rgb = np.moveaxis(rgb, -1, 0)
         dep = np.reshape(dep, (h, w))
         seg = np.reshape(seg, (h, w))
         return rgb, dep, seg
