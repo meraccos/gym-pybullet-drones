@@ -245,8 +245,15 @@ class BaseAviary(gym.Env):
         self._updateAndStoreKinematicInformation()
         #### Start video recording #################################
         self._startVideoRecording()
+        #### Load the ground vehicle ###############################
+        self._init_ground_vehicle()
     
     ################################################################################
+    
+    def _init_ground_vehicle(self):
+        urdf_file = "/home/user/pybullet_car/parsed.urdf"
+        vehicleID = p.loadURDF(urdf_file)
+        return
 
     def reset(self):
         """Resets the environment.

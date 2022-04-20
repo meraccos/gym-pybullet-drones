@@ -17,7 +17,7 @@ class LandingAviary(BaseSingleAgentAviary):
                  physics: Physics=Physics.PYB,
                  freq: int=240,
                  aggregate_phy_steps: int=1,
-                 gui=False,
+                 gui=True,
                  record=False, 
                  obs: ObservationType=ObservationType.RGB,
                  act: ActionType=ActionType.VEL,
