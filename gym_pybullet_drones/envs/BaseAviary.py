@@ -253,15 +253,15 @@ class BaseAviary(gym.Env):
     def _initialize_ground_vehicle(self):
         #### Set the parameters ####################################
         self.gv_velocity = 1
-        self.gv_joint = 4
+        self.gv_joint = [1, 4]
         self.gv_force_limit = 600
 
-        xacro_file = "/home/user/landing/pybullet_car/car_v2.urdf"
+        self.xacro_file = "/home/user/landing/pybullet_car/car_v2.urdf"
         self.urdf_file = "/home/user/landing/pybullet_car/parsed.urdf"
         
         ############################################################
 
-        parser_command = 'xacro ' + xacro_file + ' > ' + self.urdf_file
+        parser_command = 'xacro ' + self.xacro_file + ' > ' + self.urdf_file
         os.system(parser_command)
 
         self._load_ground_vehicle()
@@ -271,12 +271,21 @@ class BaseAviary(gym.Env):
     def _load_ground_vehicle(self):
         self.vehicleId = p.loadURDF(self.urdf_file)
         p.setJointMotorControl2(bodyUniqueId=self.vehicleId, 
-                                jointIndex=self.gv_joint, 
+                                jointIndex=self.gv_joint[0], 
+                                controlMode=p.VELOCITY_CONTROL, 
+                                targetVelocity=self.gv_velocity, 
+                                force=self.gv_force_limit)
+        
+        p.setJointMotorControl2(bodyUniqueId=self.vehicleId, 
+                                jointIndex=self.gv_joint[1], 
                                 controlMode=p.VELOCITY_CONTROL, 
                                 targetVelocity=self.gv_velocity, 
                                 force=self.gv_force_limit)
 
         return
+    
+    def _get_vehicle_PositionAndOrientation(self):
+        return p.getBasePositionAndOrientation(self.vehicleId)
 
     def reset(self):
         """Resets the environment.
