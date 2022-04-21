@@ -251,15 +251,20 @@ class BaseAviary(gym.Env):
     ################################################################################
 
     def _initialize_ground_vehicle(self):
-        #### Set the parameters ####################################
-        self.gv_velocity = 1
+        """ Initializes the vehicle model """
+        #### Desired velocity ######################################
+        self.gv_velocity = 10
+        #### The wheel bar joints ##################################
         self.gv_joint = [1, 4]
+        #### The helipad circle link id  ###########################
+        self.gv_circleLink = 9
+        #### Max force to reach the desired velocity ###############
         self.gv_force_limit = 600
 
+        #### Path to the actual urdf file ##########################
         self.xacro_file = "/home/user/landing/pybullet_car/car_v2.urdf"
+        #### Path for the to be parsed file ########################
         self.urdf_file = "/home/user/landing/pybullet_car/parsed.urdf"
-        
-        ############################################################
 
         parser_command = 'xacro ' + self.xacro_file + ' > ' + self.urdf_file
         os.system(parser_command)
@@ -269,6 +274,7 @@ class BaseAviary(gym.Env):
         return
     
     def _load_ground_vehicle(self):
+        """ Loads the vehicle model at every reset """
         self.vehicleId = p.loadURDF(self.urdf_file)
         p.setJointMotorControl2(bodyUniqueId=self.vehicleId, 
                                 jointIndex=self.gv_joint[0], 
@@ -284,8 +290,15 @@ class BaseAviary(gym.Env):
 
         return
     
-    def _get_vehicle_PositionAndOrientation(self):
-        return p.getBasePositionAndOrientation(self.vehicleId)
+    def _get_vehicle_position(self):
+        """ Returns the helipad center position and orientation """
+        return p.getLinkState(self.vehicleId, self.gv_circleLink)[0:2]
+
+    def _get_vehicle_velocity(self):
+        """ Returns the linear and angular velocity of the vehicle """
+        return p.getBaseVelocity(self.vehicleId, self.gv_circleLink)
+    
+
 
     def reset(self):
         """Resets the environment.
@@ -306,9 +319,9 @@ class BaseAviary(gym.Env):
         self._startVideoRecording()
         ### reset position ###
         self._resetPosition()
-        #### Return the initial observation ########################
-        # p.resetSimulation(physicsClientId=self._load_ground_vehicle())
+        ### Reloads the ground vehicle ###
         self._load_ground_vehicle()
+        #### Return the initial observation ########################
         return self._computeObs()
 
     
