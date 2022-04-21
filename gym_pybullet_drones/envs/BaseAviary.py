@@ -246,13 +246,36 @@ class BaseAviary(gym.Env):
         #### Start video recording #################################
         self._startVideoRecording()
         #### Load the ground vehicle ###############################
-        self._init_ground_vehicle()
+        self._initialize_ground_vehicle()
     
     ################################################################################
+
+    def _initialize_ground_vehicle(self):
+        #### Set the parameters ####################################
+        self.gv_velocity = 1
+        self.gv_joint = 4
+        self.gv_force_limit = 600
+
+        xacro_file = "/home/user/landing/pybullet_car/car_v2.urdf"
+        self.urdf_file = "/home/user/landing/pybullet_car/parsed.urdf"
+        
+        ############################################################
+
+        parser_command = 'xacro ' + xacro_file + ' > ' + self.urdf_file
+        os.system(parser_command)
+
+        self._load_ground_vehicle()
+        
+        return
     
-    def _init_ground_vehicle(self):
-        urdf_file = "/home/user/pybullet_car/parsed.urdf"
-        vehicleID = p.loadURDF(urdf_file)
+    def _load_ground_vehicle(self):
+        self.vehicleId = p.loadURDF(self.urdf_file)
+        p.setJointMotorControl2(bodyUniqueId=self.vehicleId, 
+                                jointIndex=self.gv_joint, 
+                                controlMode=p.VELOCITY_CONTROL, 
+                                targetVelocity=self.gv_velocity, 
+                                force=self.gv_force_limit)
+
         return
 
     def reset(self):
@@ -275,7 +298,10 @@ class BaseAviary(gym.Env):
         ### reset position ###
         self._resetPosition()
         #### Return the initial observation ########################
+        # p.resetSimulation(physicsClientId=self._load_ground_vehicle())
+        self._load_ground_vehicle()
         return self._computeObs()
+
     
     ################################################################################
 
