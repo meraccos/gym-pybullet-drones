@@ -15,7 +15,7 @@ class LandingAviary(BaseSingleAgentAviary):
                  initial_xyzs=None,
                  initial_rpys=None,
                  physics: Physics=Physics.PYB,
-                 freq: int=240,
+                 freq: int= 240,
                  aggregate_phy_steps: int=1,
                  gui=True,
                  record=False, 
@@ -72,11 +72,13 @@ class LandingAviary(BaseSingleAgentAviary):
             The reward.
 
         """
-        state = self._getDroneStateVector(0)
-        if state[0] >= 3:
-            return 1
+        UGV_pos = np.array(self._get_vehicle_position()[0])
+        state = self._getDroneStateVector(0)[0:3]
+        distance = np.linalg.norm(state-UGV_pos)
+        if distance < 0.5:
+            return 100
         else:
-            return 0
+            return -distance
 
     def _computeDone(self):
         """Computes the current done value.
@@ -110,7 +112,7 @@ class LandingAviary(BaseSingleAgentAviary):
         PYB_CLIENT = self.getPyBulletClient()
         DRONE_IDS = self.getDroneIds()
         p.resetBasePositionAndOrientation(DRONE_IDS[0],
-                                  [1, 1, 1],
+                                  [0, 0, 1],
                                   p.getQuaternionFromEuler([0, 0, 0]),
                                   physicsClientId= PYB_CLIENT
                                   )

@@ -355,6 +355,7 @@ class BaseAviary(gym.Env):
 
         """
         #### Save PNG video frames if RECORD=True and GUI=False ####
+        print(action)
         if self.RECORD and not self.GUI and self.step_counter%self.CAPTURE_FREQ == 0:
             [w, h, rgb, dep, seg] = p.getCameraImage(width=self.VID_WIDTH,
                                                      height=self.VID_HEIGHT,
