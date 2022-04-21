@@ -262,9 +262,9 @@ class BaseAviary(gym.Env):
         self.gv_force_limit = 600
 
         #### Path to the actual urdf file ##########################
-        self.xacro_file = "/home/user/landing/pybullet_car/car_v2.urdf"
+        self.xacro_file = "/home/user/landing/landing_rl/g_vehicle/car_v2.urdf"
         #### Path for the to be parsed file ########################
-        self.urdf_file = "/home/user/landing/pybullet_car/parsed.urdf"
+        self.urdf_file = "/home/user/landing/landing_rl/g_vehicle/parsed.urdf"
 
         parser_command = 'xacro ' + self.xacro_file + ' > ' + self.urdf_file
         os.system(parser_command)
