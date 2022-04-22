@@ -57,7 +57,7 @@ class BaseAviary(gym.Env):
                  num_drones: int=1,
                  neighbourhood_radius: float=np.inf,
                  initial_xyzs=None,
-                 initial_rpys=None,
+                 initial_rpys=[np.pi, 0, 0],
                  physics: Physics=Physics.PYB,
                  freq: int=240,
                  aggregate_phy_steps: int=10,
@@ -648,7 +648,7 @@ class BaseAviary(gym.Env):
         # Get the drone quaternion
         Q0 = self.quat[0]
         # Create a rotation object from Euler angles specifying axes of rotation
-        rot = Rotation.from_euler('xyz', [0, -45, 0], degrees=True)
+        rot = Rotation.from_euler('xyz', [0, -90, 0], degrees=True)
         # Convert to quaternions and print
         Q1 = rot.as_quat()
         # Get the overall rotation quaternion
