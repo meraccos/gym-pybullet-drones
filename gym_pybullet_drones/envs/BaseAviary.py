@@ -13,6 +13,7 @@ import pybullet as p
 import pybullet_data
 import gym
 from PIL import Image
+from scipy.spatial.transform import Rotation
 class DroneModel(Enum):
     """Drone models enumeration class."""
 
@@ -643,7 +644,11 @@ class BaseAviary(gym.Env):
         if self.IMG_RES is None:
             print("[ERROR] in BaseAviary._getDroneImages(), remember to set self.IMG_RES to np.array([width, height])")
             exit()
-        rot_mat = np.array(p.getMatrixFromQuaternion(self.quat[nth_drone, :])).reshape(3, 3)
+        # Create a rotation object from Euler angles specifying axes of rotation
+        rot = Rotation.from_euler('xyz', [0, -45, 0], degrees=True)
+        # Convert to quaternions and print
+        rot_quat = rot.as_quat()
+        rot_mat = np.array(p.getMatrixFromQuaternion(self.quat[nth_drone, :]-rot_quat)).reshape(3, 3)
         #### Set target point, camera view and projection matrices #
         target = np.dot(rot_mat,np.array([1000, 0, 0])) + np.array(self.pos[nth_drone, :])
         DRONE_CAM_VIEW = p.computeViewMatrix(cameraEyePosition=self.pos[nth_drone, :]+np.array([0, 0, self.L]),
