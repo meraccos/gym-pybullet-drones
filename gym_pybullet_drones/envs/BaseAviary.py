@@ -12,7 +12,7 @@ import numpy as np
 import pybullet as p
 import pybullet_data
 import gym
-
+from PIL import Image
 class DroneModel(Enum):
     """Drone models enumeration class."""
 
@@ -59,7 +59,7 @@ class BaseAviary(gym.Env):
                  initial_rpys=None,
                  physics: Physics=Physics.PYB,
                  freq: int=240,
-                 aggregate_phy_steps: int=1,
+                 aggregate_phy_steps: int=10,
                  gui=False,
                  record=False,
                  obstacles=False,
@@ -253,7 +253,7 @@ class BaseAviary(gym.Env):
     def _initialize_ground_vehicle(self):
         """ Initializes the vehicle model """
         #### Desired velocity ######################################
-        self.gv_velocity = 10
+        self.gv_velocity = 0
         #### The wheel bar joints ##################################
         self.gv_joint = [1, 4]
         #### The helipad circle link id  ###########################
@@ -355,7 +355,6 @@ class BaseAviary(gym.Env):
 
         """
         #### Save PNG video frames if RECORD=True and GUI=False ####
-        print(action)
         if self.RECORD and not self.GUI and self.step_counter%self.CAPTURE_FREQ == 0:
             [w, h, rgb, dep, seg] = p.getCameraImage(width=self.VID_WIDTH,
                                                      height=self.VID_HEIGHT,
@@ -674,6 +673,9 @@ class BaseAviary(gym.Env):
         rgb = np.moveaxis(rgb, -1, 0)
         dep = np.reshape(dep, (h, w))
         seg = np.reshape(seg, (h, w))
+        #im = Image.fromarray(rgb.transpose(1, 2, 0), 'RGBA')
+        #im.save("your_file_2.png")
+        #print('calling correct image?')
         return rgb, dep, seg
 
     ################################################################################

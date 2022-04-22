@@ -11,6 +11,8 @@ from gym_pybullet_drones.utils.utils import nnlsRPM
 from gym_pybullet_drones.control.DSLPIDControl import DSLPIDControl
 from gym_pybullet_drones.control.SimplePIDControl import SimplePIDControl
 
+from PIL import Image
+
 class ActionType(Enum):
     """Action type enumeration class."""
     RPM = "rpm"                 # RPMS
@@ -42,7 +44,7 @@ class BaseSingleAgentAviary(BaseAviary):
                  initial_rpys=None,
                  physics: Physics=Physics.PYB,
                  freq: int=240,
-                 aggregate_phy_steps: int=1,
+                 aggregate_phy_steps: int=10,
                  gui=False,
                  record=False, 
                  obs: ObservationType=ObservationType.KIN,
@@ -341,17 +343,19 @@ class BaseSingleAgentAviary(BaseAviary):
         """
         if self.OBS_TYPE == ObservationType.RGB:
             if self.step_counter%self.IMG_CAPTURE_FREQ == 0: 
-                self.rgb[0], self.dep[0], self.seg[0] = self._getDroneImages(0,
+                self.rgb, self.dep[0], self.seg[0] = self._getDroneImages(0,
                                                                              segmentation=False
                                                                              )
+                #im = Image.fromarray(self.rgb.transpose(1, 2, 0), 'RGBA')
+                #im.save("your_file_3.png")     
                 #### Printing observation to PNG frames example ############
                 if self.RECORD:
                     self._exportImage(img_type=ImageType.RGB,
-                                      img_input=self.rgb[0],
+                                      img_input=self.rgb,
                                       path=self.ONBOARD_IMG_PATH,
                                       frame_num=int(self.step_counter/self.IMG_CAPTURE_FREQ)
-                                      )
-            return self.rgb[0]
+                                      )         
+            return self.rgb
         elif self.OBS_TYPE == ObservationType.KIN: 
             obs = self._clipAndNormalizeState(self._getDroneStateVector(0))
             ############################################################

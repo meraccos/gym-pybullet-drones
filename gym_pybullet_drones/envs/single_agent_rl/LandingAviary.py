@@ -16,9 +16,9 @@ class LandingAviary(BaseSingleAgentAviary):
                  initial_rpys=None,
                  physics: Physics=Physics.PYB,
                  freq: int= 240,
-                 aggregate_phy_steps: int=1,
-                 gui=True,
-                 record=False, 
+                 aggregate_phy_steps: int=10,
+                 gui=False,
+                 record=True, 
                  obs: ObservationType=ObservationType.RGB,
                  act: ActionType=ActionType.VEL,
                  ):
@@ -178,7 +178,6 @@ class LandingAviary(BaseSingleAgentAviary):
                                       normalized_ang_vel,
                                       state[16:20]
                                       ]).reshape(20,)
-
         return norm_and_clipped
     
     ################################################################################
