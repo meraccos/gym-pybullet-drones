@@ -644,11 +644,17 @@ class BaseAviary(gym.Env):
         if self.IMG_RES is None:
             print("[ERROR] in BaseAviary._getDroneImages(), remember to set self.IMG_RES to np.array([width, height])")
             exit()
+
+        # Get the drone quaternion
+        Q0 = self.quat[0]
         # Create a rotation object from Euler angles specifying axes of rotation
-        rot = Rotation.from_euler('xyz', [0, -45, 0], degrees=True)
+        rot = Rotation.from_euler('xyz', [0, 45, 0], degrees=True)
         # Convert to quaternions and print
-        rot_quat = rot.as_quat()
-        rot_mat = np.array(p.getMatrixFromQuaternion(self.quat[nth_drone, :]-rot_quat)).reshape(3, 3)
+        Q1 = rot.as_quat()
+        # Get the overall rotation quaternion
+        Q = self.quaternion_multiply(Q0, Q1)
+
+        rot_mat = np.array(p.getMatrixFromQuaternion(self.quat[nth_drone, :]-Q)).reshape(3, 3)
         #### Set target point, camera view and projection matrices #
         target = np.dot(rot_mat,np.array([1000, 0, 0])) + np.array(self.pos[nth_drone, :])
         DRONE_CAM_VIEW = p.computeViewMatrix(cameraEyePosition=self.pos[nth_drone, :]+np.array([0, 0, self.L]),
@@ -682,6 +688,34 @@ class BaseAviary(gym.Env):
         #im.save("your_file_2.png")
         #print('calling correct image?')
         return rgb, dep, seg
+
+    ################################################################################
+
+    def quaternion_multiply(self, Q0, Q1):
+        ''' Returns quaternion multiplication of Q0 and Q1'''
+        # Extract the values from Q0
+        w0 = Q0[0]
+        x0 = Q0[1]
+        y0 = Q0[2]
+        z0 = Q0[3]
+        
+        # Extract the values from Q1
+        w1 = Q1[0]
+        x1 = Q1[1]
+        y1 = Q1[2]
+        z1 = Q1[3]
+        
+        # Computes the product of the two quaternions, term by term
+        Q0Q1_w = w0 * w1 - x0 * x1 - y0 * y1 - z0 * z1
+        Q0Q1_x = w0 * x1 + x0 * w1 + y0 * z1 - z0 * y1
+        Q0Q1_y = w0 * y1 - x0 * z1 + y0 * w1 + z0 * x1
+        Q0Q1_z = w0 * z1 + x0 * y1 - y0 * x1 + z0 * w1
+        
+        # Create a 4 element array containing the final quaternion
+        final_quaternion = np.array([Q0Q1_w, Q0Q1_x, Q0Q1_y, Q0Q1_z])
+        
+        # Return a 4 element array containing the final quaternion (q02,q12,q22,q32) 
+        return final_quaternion
 
     ################################################################################
 
