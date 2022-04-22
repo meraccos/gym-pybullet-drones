@@ -648,13 +648,14 @@ class BaseAviary(gym.Env):
         # Get the drone quaternion
         Q0 = self.quat[0]
         # Create a rotation object from Euler angles specifying axes of rotation
-        rot = Rotation.from_euler('xyz', [0, 45, 0], degrees=True)
+        rot = Rotation.from_euler('xyz', [0, -45, 0], degrees=True)
         # Convert to quaternions and print
         Q1 = rot.as_quat()
         # Get the overall rotation quaternion
-        Q = self.quaternion_multiply(Q0, Q1)
+        Q = self.quaternion_multiply(Q1, Q0)
 
-        rot_mat = np.array(p.getMatrixFromQuaternion(self.quat[nth_drone, :]-Q)).reshape(3, 3)
+        rot_mat = np.array(p.getMatrixFromQuaternion(Q)).reshape(3, 3)
+        #self.quat[nth_drone, :]-
         #### Set target point, camera view and projection matrices #
         target = np.dot(rot_mat,np.array([1000, 0, 0])) + np.array(self.pos[nth_drone, :])
         DRONE_CAM_VIEW = p.computeViewMatrix(cameraEyePosition=self.pos[nth_drone, :]+np.array([0, 0, self.L]),
