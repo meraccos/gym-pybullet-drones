@@ -276,7 +276,7 @@ class BaseAviary(gym.Env):
     
     def _load_ground_vehicle(self):
         """ Loads the vehicle model at every reset """
-        self.vehicleId = p.loadURDF(self.urdf_file)
+        self.vehicleId = p.loadURDF(self.urdf_file, basePosition = [0.2,0.2,0])
         p.setJointMotorControl2(bodyUniqueId=self.vehicleId, 
                                 jointIndex=self.gv_joint[0], 
                                 controlMode=p.VELOCITY_CONTROL, 
