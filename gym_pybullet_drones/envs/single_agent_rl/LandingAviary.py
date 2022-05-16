@@ -107,7 +107,7 @@ class LandingAviary(BaseSingleAgentAviary):
 
         """
         # return {"answer": 42} #### Calculated by the Deep Thought supercomputer in 7.5M years
-        return [self.pos[0], self.rpy[0]]
+        return [self.pos[0], self.rpy[0], self.quat[0]]
 
     def _resetPosition(self):
         PYB_CLIENT = self.getPyBulletClient()

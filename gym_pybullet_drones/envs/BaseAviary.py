@@ -645,19 +645,35 @@ class BaseAviary(gym.Env):
             print("[ERROR] in BaseAviary._getDroneImages(), remember to set self.IMG_RES to np.array([width, height])")
             exit()
 
-        # Get the drone quaternion
-        Q0 = self.quat[0]
-        # Create a rotation object from Euler angles specifying axes of rotation
-        rot = Rotation.from_euler('xyz', [0, -90, 0], degrees=True)
-        # Convert to quaternions and print
-        Q1 = rot.as_quat()
-        # Get the overall rotation quaternion
-        Q = self.quaternion_multiply(Q1, Q0)
+        # # Get the drone quaternion
+        # Q0 = self.quat[0]
+        # rot = Rotation.from_euler('xyz', [0, -90, 0], degrees=True)
+        # Q1 = rot.as_quat()
+        # Q = self.quaternion_multiply(Q1, Q0)
+        # rot_mat = np.array(p.getMatrixFromQuaternion(Q)).reshape(3, 3)
 
-        rot_mat = np.array(p.getMatrixFromQuaternion(Q)).reshape(3, 3)
-        #self.quat[nth_drone, :]-
+
+        # R0 = Rotation.from_euler('xyz', self.rpy[0]).as_matrix()
+        # R = Rotation.from_euler('xyz', [0, -90, 0], degrees=True).as_matrix()
+        # rot_mat = np.matmul(R0, R)
+
+
+        # #### Set target point, camera view and projection matrices #
+        # target = np.dot(rot_mat,np.array([1000, 0, 0])) + np.array(self.pos[nth_drone, :])
+
+
+
+        rot_mat = np.array(p.getMatrixFromQuaternion(self.quat[nth_drone, :])).reshape(3, 3)
+        print('rot_mat:\n', rot_mat)
+
         #### Set target point, camera view and projection matrices #
-        target = np.dot(rot_mat,np.array([1000, 0, 0])) + np.array(self.pos[nth_drone, :])
+        target = np.dot(rot_mat, np.array([0, 1999**0.5, -999])) + np.array(self.pos[nth_drone, :])
+        print(target)
+
+
+
+
+
         DRONE_CAM_VIEW = p.computeViewMatrix(cameraEyePosition=self.pos[nth_drone, :]+np.array([0, 0, self.L]),
                                              cameraTargetPosition=target,
                                              cameraUpVector=[0, 0, 1],
@@ -680,9 +696,9 @@ class BaseAviary(gym.Env):
         #add padding
         #print(rgb.shape)
         rgb = np.pad(rgb, ((8,8),(0,0),(0,0)), 'constant')                                
-        #rgb = np.reshape(rgb, (h, w, 4))
+        rgb = np.reshape(rgb, (h, w, 4))
         #print(rgb.shape)
-        rgb = np.moveaxis(rgb, -1, 0)
+        # rgb = np.moveaxis(rgb, -1, 0)
         dep = np.reshape(dep, (h, w))
         seg = np.reshape(seg, (h, w))
         #im = Image.fromarray(rgb.transpose(1, 2, 0), 'RGBA')
