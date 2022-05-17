@@ -154,7 +154,7 @@ class BaseAviary(gym.Env):
         #### Create attributes for vision tasks ####################
         self.VISION_ATTR = vision_attributes
         if self.VISION_ATTR:
-            self.IMG_RES = np.array([64, 48])
+            self.IMG_RES = np.array([64, 64])
             self.IMG_FRAME_PER_SEC = 24
             self.IMG_CAPTURE_FREQ = int(self.SIM_FREQ/self.IMG_FRAME_PER_SEC)
             #TODO hardcode for now
@@ -645,38 +645,14 @@ class BaseAviary(gym.Env):
             print("[ERROR] in BaseAviary._getDroneImages(), remember to set self.IMG_RES to np.array([width, height])")
             exit()
 
-        # # Get the drone quaternion
-        # Q0 = self.quat[0]
-        # rot = Rotation.from_euler('xyz', [0, -90, 0], degrees=True)
-        # Q1 = rot.as_quat()
-        # Q = self.quaternion_multiply(Q1, Q0)
-        # rot_mat = np.array(p.getMatrixFromQuaternion(Q)).reshape(3, 3)
-
-
-        # R0 = Rotation.from_euler('xyz', self.rpy[0]).as_matrix()
-        # R = Rotation.from_euler('xyz', [0, -90, 0], degrees=True).as_matrix()
-        # rot_mat = np.matmul(R0, R)
-
-
-        # #### Set target point, camera view and projection matrices #
-        # target = np.dot(rot_mat,np.array([1000, 0, 0])) + np.array(self.pos[nth_drone, :])
-
-
-
         rot_mat = np.array(p.getMatrixFromQuaternion(self.quat[nth_drone, :])).reshape(3, 3)
-        print('rot_mat:\n', rot_mat)
 
         #### Set target point, camera view and projection matrices #
-        target = np.dot(rot_mat, np.array([0, 1999**0.5, -999])) + np.array(self.pos[nth_drone, :])
-        print(target)
-
-
-
-
+        target = np.dot(rot_mat, np.array([0, 0, -1000])) + np.array(self.pos[nth_drone, :])
 
         DRONE_CAM_VIEW = p.computeViewMatrix(cameraEyePosition=self.pos[nth_drone, :]+np.array([0, 0, self.L]),
                                              cameraTargetPosition=target,
-                                             cameraUpVector=[0, 0, 1],
+                                             cameraUpVector=[1, 0, 0],
                                              physicsClientId=self.CLIENT
                                              )
         DRONE_CAM_PRO =  p.computeProjectionMatrixFOV(fov=60.0,
@@ -696,9 +672,9 @@ class BaseAviary(gym.Env):
         #add padding
         #print(rgb.shape)
         rgb = np.pad(rgb, ((8,8),(0,0),(0,0)), 'constant')                                
-        rgb = np.reshape(rgb, (h, w, 4))
+        # rgb = np.reshape(rgb, (h, w, 4))
         #print(rgb.shape)
-        # rgb = np.moveaxis(rgb, -1, 0)
+        rgb = np.moveaxis(rgb, -1, 0)
         dep = np.reshape(dep, (h, w))
         seg = np.reshape(seg, (h, w))
         #im = Image.fromarray(rgb.transpose(1, 2, 0), 'RGBA')
