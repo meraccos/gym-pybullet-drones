@@ -68,6 +68,8 @@ class BaseAviary(gym.Env):
                  vision_attributes=False,
                  dynamics_attributes=False
                  ):
+        self.gv_velocity = 3
+        self.gv_pos = [0.2, 0.2, 0]
         """Initialization of a generic aviary environment.
 
         Parameters
@@ -254,7 +256,7 @@ class BaseAviary(gym.Env):
     def _initialize_ground_vehicle(self):
         """ Initializes the vehicle model """
         #### Desired velocity ######################################
-        self.gv_velocity = 0
+        # self.gv_velocity = 0
         #### The wheel bar joints ##################################
         self.gv_joint = [1, 4]
         #### The helipad circle link id  ###########################
@@ -276,7 +278,8 @@ class BaseAviary(gym.Env):
     
     def _load_ground_vehicle(self):
         """ Loads the vehicle model at every reset """
-        self.vehicleId = p.loadURDF(self.urdf_file, basePosition = [0.2,0.2,0])
+        # self.gv_pos = [0.2,0.2,0]
+        self.vehicleId = p.loadURDF(self.urdf_file, basePosition = self.gv_pos)
         p.setJointMotorControl2(bodyUniqueId=self.vehicleId, 
                                 jointIndex=self.gv_joint[0], 
                                 controlMode=p.VELOCITY_CONTROL, 

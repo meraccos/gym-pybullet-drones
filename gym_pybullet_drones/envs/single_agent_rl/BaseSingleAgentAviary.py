@@ -119,7 +119,7 @@ class BaseSingleAgentAviary(BaseAviary):
                          gui=gui,
                          record=record, 
                          obstacles=False, # Add obstacles for RGB observations and/or FlyThruGate
-                         user_debug_gui=False, # Remove of RPM sliders from all single agent learning aviaries
+                         user_debug_gui=True, # Remove of RPM sliders from all single agent learning aviaries
                          vision_attributes=vision_attributes,
                          dynamics_attributes=dynamics_attributes
                          )
