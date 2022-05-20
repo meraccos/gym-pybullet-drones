@@ -265,7 +265,7 @@ class BaseAviary(gym.Env):
         self.gv_force_limit = 600
 
         #### Path to the actual urdf file ##########################
-        self.xacro_file = "/home/user/landing/landing_rl/g_vehicle/car_v2.urdf"
+        self.xacro_file = "/home/user/landing/landing_rl/g_vehicle/car_v3.urdf"
         #### Path for the to be parsed file ########################
         self.urdf_file = "/home/user/landing/landing_rl/g_vehicle/parsed.urdf"
 
@@ -441,6 +441,14 @@ class BaseAviary(gym.Env):
         info = self._computeInfo()
         #### Advance the step counter ##############################
         self.step_counter = self.step_counter + (1 * self.AGGR_PHY_STEPS)
+
+
+        roll = 0.1 * np.sin(np.deg2rad(self.step_counter))
+        pitch = 0.1 * np.cos(np.deg2rad(self.step_counter))
+        yaw = (roll * pitch) * 15
+        p.setJointMotorControlMultiDof(self.vehicleId, 8, p.POSITION_CONTROL, targetPosition = [roll, pitch, yaw, 1])
+        
+
         return obs, reward, done, info
     
     ################################################################################
