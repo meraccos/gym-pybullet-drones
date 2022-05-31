@@ -5,6 +5,7 @@ import numpy as np
 from gym import spaces
 import pybullet as p
 import pybullet_data
+from ...utils.utils import rgb2gray
 
 from gym_pybullet_drones.envs.BaseAviary import DroneModel, Physics, ImageType, BaseAviary
 from gym_pybullet_drones.utils.utils import nnlsRPM
@@ -130,6 +131,7 @@ class BaseSingleAgentAviary(BaseAviary):
         if act == ActionType.TUN and not (hasattr(self.__class__, '_trajectoryTrackingRPMs') and callable(getattr(self.__class__, '_trajectoryTrackingRPMs'))):
                 print("[ERROR] in BaseSingleAgentAviary.__init__(), ActionType.TUN requires an implementation of _trajectoryTrackingRPMs in the instantiated subclass")
                 exit()
+        self.max_episode_steps = int(self.EPISODE_LEN_SEC*self.SIM_FREQ/self.AGGR_PHY_STEPS)
 
     ################################################################################
 
@@ -354,7 +356,8 @@ class BaseSingleAgentAviary(BaseAviary):
                                       img_input=self.rgb,
                                       path=self.ONBOARD_IMG_PATH,
                                       frame_num=int(self.step_counter/self.IMG_CAPTURE_FREQ)
-                                      )         
+                                      )
+            self.rgb = rgb2gray(self.rgb)[None,:]
             return self.rgb
         elif self.OBS_TYPE == ObservationType.KIN: 
             obs = self._clipAndNormalizeState(self._getDroneStateVector(0))

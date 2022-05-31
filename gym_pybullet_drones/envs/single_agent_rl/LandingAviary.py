@@ -18,7 +18,7 @@ class LandingAviary(BaseSingleAgentAviary):
                  freq: int= 240,
                  aggregate_phy_steps: int=10,
                  gui=False,
-                 record=True, 
+                 record=False, 
                  obs: ObservationType=ObservationType.RGB,
                  act: ActionType=ActionType.VEL,
                  ):
@@ -72,13 +72,22 @@ class LandingAviary(BaseSingleAgentAviary):
             The reward.
 
         """
+        alpha = 0.25
+        beta = 0.75
         UGV_pos = np.array(self._get_vehicle_position()[0])
-        state = self._getDroneStateVector(0)[0:3]
-        distance = np.linalg.norm(state-UGV_pos)
-        if distance < 0.5:
-            return 100
+        drone_state = self._getDroneStateVector(0)
+        drone_position = drone_state[0:3]
+
+        distance_xy = np.linalg.norm(drone_position[0:2]-UGV_pos[0:2])
+        distance_z = np.linalg.norm(drone_position[2:3]-UGV_pos[2:3])
+        distance_reward = -(alpha*distance_xy+beta*distance_z)/10
+        combined_reward = distance_reward
+        if distance_z >= 0.271 and p.getContactPoints(bodyA=1) != ():
+            return 10 + combined_reward
+        elif distance_z < 0.271 and p.getContactPoints(bodyA=1) != ():
+            return -10 + combined_reward
         else:
-            return -distance
+            return combined_reward
 
     def _computeDone(self):
         """Computes the current done value.
