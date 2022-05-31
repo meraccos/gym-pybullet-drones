@@ -83,12 +83,15 @@ class LandingAviary(BaseSingleAgentAviary):
         velocity_error = np.linalg.norm(drone_velocity)
         velocity_reward = velocity_error
         distance_xy = np.linalg.norm(drone_position[0:2]-UGV_pos[0:2])
-        distance_z = np.linalg.norm(drone_position[2:3]-UGV_pos[2:3])
+        distance_z = np.linalg.norm(drone_position[2]-UGV_pos[2])
         distance_reward = (alpha*distance_xy+beta*distance_z)/10
         combined_reward = -(gamma*distance_reward**2+zeta*velocity_error**2)
-        if distance_z >= 0.271 and p.getContactPoints(bodyA=1) != ():
+        if drone_position[2] >= 0.28 and p.getContactPoints(bodyA=1) != ():
+            print('landed!')
+            print(velocity_error)
             return 10 + combined_reward
-        elif distance_z < 0.271 and p.getContactPoints(bodyA=1) != ():
+        elif drone_position[2] < 0.28 and p.getContactPoints(bodyA=1) != ():
+            print('crashed!')
             return -10 + combined_reward
         else:
             return combined_reward
@@ -102,6 +105,8 @@ class LandingAviary(BaseSingleAgentAviary):
             Whether the current episode is done.
 
         """
+        if p.getContactPoints(bodyA=1) != ():
+            return True
         if self.step_counter/self.SIM_FREQ > self.EPISODE_LEN_SEC:
             return True
         else:
