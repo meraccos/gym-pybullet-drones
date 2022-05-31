@@ -74,14 +74,18 @@ class LandingAviary(BaseSingleAgentAviary):
         """
         alpha = 0.25
         beta = 0.75
+        gamma = 0.75
+        zeta = 0.25
         UGV_pos = np.array(self._get_vehicle_position()[0])
         drone_state = self._getDroneStateVector(0)
         drone_position = drone_state[0:3]
-
+        drone_velocity = drone_state[10:13]
+        velocity_error = np.linalg.norm(drone_velocity)
+        velocity_reward = velocity_error
         distance_xy = np.linalg.norm(drone_position[0:2]-UGV_pos[0:2])
         distance_z = np.linalg.norm(drone_position[2:3]-UGV_pos[2:3])
-        distance_reward = -(alpha*distance_xy+beta*distance_z)/10
-        combined_reward = distance_reward
+        distance_reward = (alpha*distance_xy+beta*distance_z)/10
+        combined_reward = -(gamma*distance_reward**2+zeta*velocity_error**2)
         if distance_z >= 0.271 and p.getContactPoints(bodyA=1) != ():
             return 10 + combined_reward
         elif distance_z < 0.271 and p.getContactPoints(bodyA=1) != ():
