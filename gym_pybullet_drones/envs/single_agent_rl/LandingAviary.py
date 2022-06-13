@@ -9,7 +9,6 @@ class LandingAviary(BaseSingleAgentAviary):
     """Single agent RL problem: take-off."""
     
     ################################################################################
-
     def __init__(self,
                  drone_model: DroneModel=DroneModel.CF2X,
                  initial_xyzs=None,
@@ -72,7 +71,7 @@ class LandingAviary(BaseSingleAgentAviary):
             The reward.
 
         """
-        lambda_error = 3
+        lambda_error = 1/3
         UGV_pos = np.array(self._get_vehicle_position()[0])
         drone_state = self._getDroneStateVector(0)
         drone_position = drone_state[0:3]
@@ -85,10 +84,10 @@ class LandingAviary(BaseSingleAgentAviary):
         #combined_reward = -(gamma*distance_reward**2+zeta*velocity_error**2)
         position_errors = drone_position - UGV_pos
         combined_reward =(drone_velocity+lambda_error*position_errors)
-        combined_reward = - np.sum(np.square(combined_reward))/10
+        combined_reward = - np.sum(np.absolute(combined_reward))
         if drone_position[2] >= 0.275 and p.getContactPoints(bodyA=1) != ():
             print('landed!')
-            print(velocity_error)
+            print(drone_velocity)
             return 10 + combined_reward
         elif drone_position[2] < 0.275 and p.getContactPoints(bodyA=1) != ():
             print('crashed!')

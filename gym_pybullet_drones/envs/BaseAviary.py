@@ -276,7 +276,7 @@ class BaseAviary(gym.Env):
     
     def _load_ground_vehicle(self):
         """ Loads the vehicle model at every reset """
-        self.vehicleId = p.loadURDF(self.urdf_file)
+        self.vehicleId = p.loadURDF(self.urdf_file, basePosition = [0.0,0.0,0])
         p.setJointMotorControl2(bodyUniqueId=self.vehicleId, 
                                 jointIndex=self.gv_joint[0], 
                                 controlMode=p.VELOCITY_CONTROL, 
@@ -565,7 +565,6 @@ class BaseAviary(gym.Env):
 
         This method is meant to limit the number of calls to PyBullet in each step
         and improve performance (at the expense of memory).
-
         """
         for i in range (self.NUM_DRONES):
             self.pos[i], self.quat[i] = p.getBasePositionAndOrientation(self.DRONE_IDS[i], physicsClientId=self.CLIENT)
