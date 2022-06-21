@@ -254,6 +254,9 @@ class BaseSingleAgentAviary(BaseAviary):
                                                  )
             return rpm
         elif self.ACT_TYPE == ActionType.VEL:
+            #implemement deadzones
+            deadzone_limit = 0.05
+            action[np.abs(action)<deadzone_limit] = 0 
             state = self._getDroneStateVector(0)
             if np.linalg.norm(action[0:3]) != 0:
                 v_unit_vector = action[0:3] / np.linalg.norm(action[0:3])

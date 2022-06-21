@@ -11,7 +11,7 @@ class LandingAviary(BaseSingleAgentAviary):
     ################################################################################
     def __init__(self,
                  drone_model: DroneModel=DroneModel.CF2X,
-                 initial_xyzs=None,
+                 initial_xyzs=np.array([0,0,1]),
                  initial_rpys=None,
                  physics: Physics=Physics.PYB,
                  freq: int= 240,
@@ -72,6 +72,10 @@ class LandingAviary(BaseSingleAgentAviary):
 
         """
         lambda_error = 1/3
+        desired_z_velocity = -0.2
+        #eventually it will become speed of ground vehicle
+        desired_xy_velocity = 0.0
+        alpha = 1
         UGV_pos = np.array(self._get_vehicle_position()[0])
         drone_state = self._getDroneStateVector(0)
         drone_position = drone_state[0:3]
@@ -82,16 +86,24 @@ class LandingAviary(BaseSingleAgentAviary):
         #distance_z = np.linalg.norm(drone_position[2]-UGV_pos[2])
         #distance_reward = (alpha*distance_xy+beta*distance_z)/10
         #combined_reward = -(gamma*distance_reward**2+zeta*velocity_error**2)
-        position_errors = drone_position - UGV_pos
-        combined_reward =(drone_velocity+lambda_error*position_errors)
-        combined_reward = - np.sum(np.absolute(combined_reward))
+        position_errors = np.abs(drone_position - UGV_pos)
+        velocity_z_flag = (0 > drone_velocity[2]) * (drone_velocity[2] > desired_z_velocity)
+        reward_z_velocity = alpha * drone_velocity[2] * velocity_z_flag/desired_z_velocity
+        #punishment for excessive z velocity
+        if velocity_z_flag == False:
+            if drone_velocity[2] < desired_z_velocity:
+                reward_z_velocity = -10 * abs(drone_velocity[2])**2
+            else:
+                reward_z_velocity = - drone_velocity[2]
+        reward_xy_velocity = np.sum(-np.abs(drone_velocity[0:2]- desired_xy_velocity))
+        combined_reward =-position_errors + reward_z_velocity #+ reward_xy_velocity
+        combined_reward = np.sum(combined_reward)
         if drone_position[2] >= 0.275 and p.getContactPoints(bodyA=1) != ():
             print('landed!')
-            print(drone_velocity)
-            return 10 + combined_reward
+            return 50 + combined_reward
         elif drone_position[2] < 0.275 and p.getContactPoints(bodyA=1) != ():
             print('crashed!')
-            return -10 + combined_reward
+            return -50 + combined_reward
         else:
             return combined_reward
 
