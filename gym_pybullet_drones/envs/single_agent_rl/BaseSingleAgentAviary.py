@@ -86,7 +86,7 @@ class BaseSingleAgentAviary(BaseAviary):
         dynamics_attributes = True if act in [ActionType.DYN, ActionType.ONE_D_DYN] else False
         self.OBS_TYPE = obs
         self.ACT_TYPE = act
-        self.EPISODE_LEN_SEC = 20
+        self.EPISODE_LEN_SEC = 25
         #### Create integrated controllers #########################
         if act in [ActionType.PID, ActionType.VEL, ActionType.TUN, ActionType.ONE_D_PID]:
             os.environ['KMP_DUPLICATE_LIB_OK']='True'
@@ -125,8 +125,9 @@ class BaseSingleAgentAviary(BaseAviary):
                          dynamics_attributes=dynamics_attributes
                          )
         #### Set a limit on the maximum target speed ###############
+        #Z needs its own speed limit
         if act == ActionType.VEL:
-            self.SPEED_LIMIT = 0.03 * self.MAX_SPEED_KMH * (1000/3600)
+            self.SPEED_LIMIT = np.array([0.35 * self.MAX_SPEED_KMH * (1000/3600), 0.35 * self.MAX_SPEED_KMH * (1000/3600), 0.12 * self.MAX_SPEED_KMH * (1000/3600)])
         #### Try _trajectoryTrackingRPMs exists IFF ActionType.TUN #
         if act == ActionType.TUN and not (hasattr(self.__class__, '_trajectoryTrackingRPMs') and callable(getattr(self.__class__, '_trajectoryTrackingRPMs'))):
                 print("[ERROR] in BaseSingleAgentAviary.__init__(), ActionType.TUN requires an implementation of _trajectoryTrackingRPMs in the instantiated subclass")
@@ -255,21 +256,23 @@ class BaseSingleAgentAviary(BaseAviary):
             return rpm
         elif self.ACT_TYPE == ActionType.VEL:
             #implemement deadzones
-            deadzone_limit = 0.05
+            deadzone_limit = 0.005
             action[np.abs(action)<deadzone_limit] = 0 
             state = self._getDroneStateVector(0)
             if np.linalg.norm(action[0:3]) != 0:
                 v_unit_vector = action[0:3] / np.linalg.norm(action[0:3])
             else:
                 v_unit_vector = np.zeros(3)
+            #it is necessary to limit velocity changes in smooth manner, otherwise controller goes crazy
+            target_vel = 0.3 * (self.SPEED_LIMIT * action[0:3]) + 0.7 * state[10:13]
             rpm, _, _ = self.ctrl.computeControl(control_timestep=self.AGGR_PHY_STEPS*self.TIMESTEP, 
                                                  cur_pos=state[0:3],
                                                  cur_quat=state[3:7],
                                                  cur_vel=state[10:13],
                                                  cur_ang_vel=state[13:16],
                                                  target_pos=state[0:3], # same as the current position
-                                                 target_rpy=np.array([0,0,state[9]]), # keep current yaw
-                                                 target_vel=self.SPEED_LIMIT * action[0:3]#np.abs(action[3]) * v_unit_vector # target the desired velocity vector
+                                                 target_rpy=np.array([0,0,0]),#,state[9]]), # keep current yaw
+                                                 target_vel= target_vel#self.SPEED_LIMIT * action[0:3]#np.abs(action[3]) * v_unit_vector # target the desired velocity vector
                                                  )
             return rpm
         elif self.ACT_TYPE == ActionType.ONE_D_RPM:
@@ -348,6 +351,7 @@ class BaseSingleAgentAviary(BaseAviary):
         """
         if self.OBS_TYPE == ObservationType.RGB:
             if self.step_counter%self.IMG_CAPTURE_FREQ == 0: 
+                
                 self.rgb, self.dep[0], self.seg[0] = self._getDroneImages(0,
                                                                              segmentation=False
                                                                              )
@@ -360,7 +364,7 @@ class BaseSingleAgentAviary(BaseAviary):
                                       path=self.ONBOARD_IMG_PATH,
                                       frame_num=int(self.step_counter/self.IMG_CAPTURE_FREQ)
                                       )
-            self.rgb = rgb2gray(self.rgb)[None,:]
+                self.rgb = rgb2gray(self.rgb)[None,:]
             return self.rgb
         elif self.OBS_TYPE == ObservationType.KIN: 
             obs = self._clipAndNormalizeState(self._getDroneStateVector(0))

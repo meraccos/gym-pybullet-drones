@@ -161,8 +161,13 @@ class BaseAviary(gym.Env):
             self.rgb = np.zeros(((self.NUM_DRONES, 4, self.IMG_RES[0], self.IMG_RES[0])))
             self.dep = np.ones(((self.NUM_DRONES, self.IMG_RES[1], self.IMG_RES[0])))
             self.seg = np.zeros(((self.NUM_DRONES, self.IMG_RES[1], self.IMG_RES[0])))
+
             if self.IMG_CAPTURE_FREQ%self.AGGR_PHY_STEPS != 0:
                 print("[ERROR] in BaseAviary.__init__(), aggregate_phy_steps incompatible with the desired video capture frame rate ({:f}Hz)".format(self.IMG_FRAME_PER_SEC))
+                print(self.IMG_CAPTURE_FREQ)
+                print(self.AGGR_PHY_STEPS)
+                print(self.IMG_CAPTURE_FREQ%self.AGGR_PHY_STEPS)
+                print(self.IMG_CAPTURE_FREQ%self.AGGR_PHY_STEPS != 0)
                 exit()
             if self.RECORD:
                 self.ONBOARD_IMG_PATH = os.path.dirname(os.path.abspath(__file__))+"/../../files/videos/onboard-"+datetime.now().strftime("%m.%d.%Y_%H.%M.%S")+"/"
@@ -255,7 +260,7 @@ class BaseAviary(gym.Env):
     def _initialize_ground_vehicle(self):
         """ Initializes the vehicle model """
         #### Desired velocity ######################################
-        self.gv_velocity = 0
+        self.gv_velocity = 18
         #### The wheel bar joints ##################################
         self.gv_joint = [1, 4]
         #### The helipad circle link id  ###########################
@@ -298,7 +303,7 @@ class BaseAviary(gym.Env):
 
     def _get_vehicle_velocity(self):
         """ Returns the linear and angular velocity of the vehicle """
-        return p.getBaseVelocity(self.vehicleId, self.gv_circleLink)
+        return p.getBaseVelocity(self.vehicleId)
     
 
 
@@ -512,6 +517,9 @@ class BaseAviary(gym.Env):
         in the `reset()` function.
 
         """
+        #random initial position
+        self.INIT_XYZS_random = 1*np.random.rand(*self.INIT_XYZS.shape) + self.INIT_XYZS
+        #self.INIT_XYZS_random = self.INIT_XYZS
         #### Initialize/reset counters and zero-valued variables ###
         self.RESET_TIME = time.time()
         self.step_counter = 0
@@ -541,7 +549,7 @@ class BaseAviary(gym.Env):
         #### Load ground plane, drone and obstacles models #########
         self.PLANE_ID = p.loadURDF("plane.urdf", physicsClientId=self.CLIENT)
         self.DRONE_IDS = np.array([p.loadURDF(os.path.dirname(os.path.abspath(__file__))+"/../assets/"+self.URDF,
-                                              self.INIT_XYZS[i,:],
+                                              self.INIT_XYZS_random[i,:],
                                               p.getQuaternionFromEuler(self.INIT_RPYS[i,:]),
                                               flags = p.URDF_USE_INERTIA_FROM_FILE,
                                               physicsClientId=self.CLIENT
