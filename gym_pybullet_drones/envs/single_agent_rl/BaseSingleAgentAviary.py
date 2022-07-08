@@ -264,7 +264,7 @@ class BaseSingleAgentAviary(BaseAviary):
             else:
                 v_unit_vector = np.zeros(3)
             #it is necessary to limit velocity changes in smooth manner, otherwise controller goes crazy
-            target_vel = 0.3 * (self.SPEED_LIMIT * action[0:3]) + 0.7 * state[10:13]
+            target_vel = 0.2 * (self.SPEED_LIMIT * action[0:3]) + 0.8 * state[10:13]
             rpm, _, _ = self.ctrl.computeControl(control_timestep=self.AGGR_PHY_STEPS*self.TIMESTEP, 
                                                  cur_pos=state[0:3],
                                                  cur_quat=state[3:7],
