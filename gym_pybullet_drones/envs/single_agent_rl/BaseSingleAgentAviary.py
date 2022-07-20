@@ -86,7 +86,7 @@ class BaseSingleAgentAviary(BaseAviary):
         dynamics_attributes = True if act in [ActionType.DYN, ActionType.ONE_D_DYN] else False
         self.OBS_TYPE = obs
         self.ACT_TYPE = act
-        self.EPISODE_LEN_SEC = 25
+        self.EPISODE_LEN_SEC = 30
         #### Create integrated controllers #########################
         if act in [ActionType.PID, ActionType.VEL, ActionType.TUN, ActionType.ONE_D_PID]:
             os.environ['KMP_DUPLICATE_LIB_OK']='True'
@@ -119,7 +119,7 @@ class BaseSingleAgentAviary(BaseAviary):
                          aggregate_phy_steps=aggregate_phy_steps,
                          gui=gui,
                          record=record, 
-                         obstacles=True, # Add obstacles for RGB observations and/or FlyThruGate
+                         obstacles=False, # Add obstacles for RGB observations and/or FlyThruGate
                          user_debug_gui=False, # Remove of RPM sliders from all single agent learning aviaries
                          vision_attributes=vision_attributes,
                          dynamics_attributes=dynamics_attributes
@@ -264,7 +264,7 @@ class BaseSingleAgentAviary(BaseAviary):
             else:
                 v_unit_vector = np.zeros(3)
             #it is necessary to limit velocity changes in smooth manner, otherwise controller goes crazy
-            target_vel = 0.2 * (self.SPEED_LIMIT * action[0:3]) + 0.8 * state[10:13]
+            target_vel = 0.15 * (self.SPEED_LIMIT * action[0:3]) + 0.85 * state[10:13]
             rpm, _, _ = self.ctrl.computeControl(control_timestep=self.AGGR_PHY_STEPS*self.TIMESTEP, 
                                                  cur_pos=state[0:3],
                                                  cur_quat=state[3:7],
