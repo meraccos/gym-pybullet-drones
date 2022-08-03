@@ -518,8 +518,8 @@ class BaseAviary(gym.Env):
 
         """
         #random initial position
-        self.INIT_XYZS_random = 1*np.random.rand(*self.INIT_XYZS.shape) + self.INIT_XYZS
-        #self.INIT_XYZS_random = self.INIT_XYZS
+        self.INIT_XYZS_random = (-3+(6*np.random.rand(*self.INIT_XYZS.shape))) + self.INIT_XYZS
+        #self.INIT_XYZS_random = self.INIT_XYZS -4
         #### Initialize/reset counters and zero-valued variables ###
         self.RESET_TIME = time.time()
         self.step_counter = 0

@@ -13,7 +13,7 @@ class LandingAviary(BaseSingleAgentAviary):
                  drone_model: DroneModel=DroneModel.CF2X,
                  initial_xyzs=np.array([0,0,10]),
                  initial_rpys=None,
-                 physics: Physics=Physics.PYB,
+                 physics: Physics=Physics.PYB_GND_DRAG_DW,
                  freq: int= 240,
                  aggregate_phy_steps: int=10,
                  gui=False,
@@ -96,9 +96,9 @@ class LandingAviary(BaseSingleAgentAviary):
         #punishment for excessive z velocity
         if velocity_z_flag == False:
             if drone_velocity[2] < desired_z_velocity:
-                reward_z_velocity = 0#-abs(drone_velocity[2]/self.SPEED_LIMIT[2])**2
+                reward_z_velocity = -0.01#-abs(drone_velocity[2]/self.SPEED_LIMIT[2])**2
             else:
-                reward_z_velocity = 0#- 10*drone_velocity[2]
+                reward_z_velocity = -0.01#- 10*drone_velocity[2]
             if abs(drone_velocity[2])/self.SPEED_LIMIT[2] > 1.1:
                 reward_z_velocity = 0#reward_z_velocity -5
         #reward_xy_velocity = np.sum(-np.abs(drone_velocity[0:2]- desired_xy_velocity))
@@ -123,7 +123,7 @@ class LandingAviary(BaseSingleAgentAviary):
             combined_reward =  120 + combined_reward
         elif drone_position[2] < 0.275 and p.getContactPoints(bodyA=1) != ():
             print('crashed!')
-            combined_reward = 0 #normalized_distance_xy * 10 #0#5*distance_xy + combined_reward
+            combined_reward = -0.01 #normalized_distance_xy * 10 #0#5*distance_xy + combined_reward
         else:
             combined_reward =  combined_reward
         distance_x = np.abs(drone_position[0]-UGV_pos[0])
