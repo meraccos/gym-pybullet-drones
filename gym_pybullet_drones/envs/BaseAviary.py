@@ -294,7 +294,7 @@ class BaseAviary(gym.Env):
                                 controlMode=p.VELOCITY_CONTROL, 
                                 targetVelocity=self.gv_velocity, 
                                 force=self.gv_force_limit)
-
+                                           
         return
     
     def _get_vehicle_position(self):
