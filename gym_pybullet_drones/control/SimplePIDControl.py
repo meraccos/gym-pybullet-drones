@@ -5,6 +5,7 @@ import pybullet as p
 from gym_pybullet_drones.control.BaseControl import BaseControl
 from gym_pybullet_drones.envs.BaseAviary import DroneModel, BaseAviary
 from gym_pybullet_drones.utils.utils import nnlsRPM
+from scipy.spatial.transform import Rotation
 
 class SimplePIDControl(BaseControl):
     """Generic PID control class without yaw control.
@@ -35,10 +36,10 @@ class SimplePIDControl(BaseControl):
             exit()
         self.P_COEFF_FOR = np.array([.1, .1, .2])
         self.I_COEFF_FOR = np.array([.0001, .0001, .0001])
-        self.D_COEFF_FOR = np.array([.3, .3, .4])
-        self.P_COEFF_TOR = np.array([.3, .3, .05])
-        self.I_COEFF_TOR = np.array([.0001, .0001, .0001])
-        self.D_COEFF_TOR = np.array([.3, .3, .5])
+        self.D_COEFF_FOR = np.array([.5, .5, .8])
+        self.P_COEFF_TOR = np.array([.35, .35, .005])
+        self.I_COEFF_TOR = np.array([0.0, 0.0, 0])
+        self.D_COEFF_TOR = np.array([0.03, 0.03, 0])
         self.MAX_ROLL_PITCH = np.pi/6
         self.L = self._getURDFParameter('arm')
         self.THRUST2WEIGHT_RATIO = self._getURDFParameter('thrust2weight')
@@ -65,6 +66,8 @@ class SimplePIDControl(BaseControl):
         self.integral_pos_e = np.zeros(3)
         self.last_rpy_e = np.zeros(3)
         self.integral_rpy_e = np.zeros(3)
+        #### Store the last roll, pitch, and yaw ###################
+        self.last_rpy = np.zeros(3)
     
     ################################################################################
 
@@ -121,12 +124,15 @@ class SimplePIDControl(BaseControl):
         thrust, computed_target_rpy, pos_e = self._simplePIDPositionControl(control_timestep,
                                                                             cur_pos,
                                                                             cur_quat,
-                                                                            target_pos
+                                                                            cur_vel,
+                                                                            target_pos,
+                                                                            target_vel
                                                                             )
         rpm = self._simplePIDAttitudeControl(control_timestep,
                                              thrust,
                                              cur_quat,
-                                             computed_target_rpy
+                                             computed_target_rpy,
+                                             target_rpy_rates
                                              )
         cur_rpy = p.getEulerFromQuaternion(cur_quat)
         return rpm, pos_e, computed_target_rpy[2] - cur_rpy[2]
@@ -137,7 +143,9 @@ class SimplePIDControl(BaseControl):
                                   control_timestep,
                                   cur_pos,
                                   cur_quat,
-                                  target_pos
+                                  cur_vel,
+                                  target_pos,
+                                  target_vel
                                   ):
         """Simple PID position control (with yaw fixed to 0).
 
@@ -162,15 +170,17 @@ class SimplePIDControl(BaseControl):
             The current position error.
 
         """
-        pos_e = target_pos - np.array(cur_pos).reshape(3)
-        d_pos_e = (pos_e - self.last_pos_e) / control_timestep
-        self.last_pos_e = pos_e
+        #cur_rotation = np.array(p.getMatrixFromQuaternion(cur_quat)).reshape(3, 3)
+        pos_e = target_pos - cur_pos
+        vel_e = target_vel - cur_vel
         self.integral_pos_e = self.integral_pos_e + pos_e*control_timestep
+        self.integral_pos_e = np.clip(self.integral_pos_e, -2., 2.)
+        self.integral_pos_e[2] = np.clip(self.integral_pos_e[2], -0.15, .15)
         #### PID target thrust #####################################
         target_force = np.array([0, 0, self.GRAVITY]) \
                        + np.multiply(self.P_COEFF_FOR, pos_e) \
                        + np.multiply(self.I_COEFF_FOR, self.integral_pos_e) \
-                       + np.multiply(self.D_COEFF_FOR, d_pos_e)
+                       + np.multiply(self.D_COEFF_FOR, vel_e)
         target_rpy = np.zeros(3)
         sign_z =  np.sign(target_force[2])
         if sign_z == 0:
@@ -191,7 +201,8 @@ class SimplePIDControl(BaseControl):
                                   control_timestep,
                                   thrust,
                                   cur_quat,
-                                  target_rpy
+                                  target_euler,
+                                  target_rpy_rates
                                   ):
         """Simple PID attitude control (with yaw fixed to 0).
 
@@ -212,19 +223,25 @@ class SimplePIDControl(BaseControl):
             (4,1)-shaped array of integers containing the RPMs to apply to each of the 4 motors.
 
         """
-        cur_rpy = p.getEulerFromQuaternion(cur_quat)
-        rpy_e = target_rpy - np.array(cur_rpy).reshape(3,)
-        if rpy_e[2] > np.pi:
-            rpy_e[2] = rpy_e[2] - 2*np.pi
-        if rpy_e[2] < -np.pi:
-            rpy_e[2] = rpy_e[2] + 2*np.pi
-        d_rpy_e = (rpy_e - self.last_rpy_e) / control_timestep
-        self.last_rpy_e = rpy_e
-        self.integral_rpy_e = self.integral_rpy_e + rpy_e*control_timestep
+        cur_rotation = np.array(p.getMatrixFromQuaternion(cur_quat)).reshape(3, 3)
+        cur_rpy = np.array(p.getEulerFromQuaternion(cur_quat))
+        target_quat = (Rotation.from_euler('XYZ', target_euler, degrees=False)).as_quat()
+        w,x,y,z = target_quat
+        target_rotation = (Rotation.from_quat([w, x, y, z])).as_matrix()
+        rot_matrix_e = np.dot((target_rotation.transpose()),cur_rotation) - np.dot(cur_rotation.transpose(),target_rotation)
+        rot_e = np.array([rot_matrix_e[2, 1], rot_matrix_e[0, 2], rot_matrix_e[1, 0]]) 
+        rpy_rates_e = target_rpy_rates - (cur_rpy - self.last_rpy)/control_timestep
+        self.last_rpy = cur_rpy
+        self.integral_rpy_e = self.integral_rpy_e - rot_e*control_timestep
+        self.integral_rpy_e = np.clip(self.integral_rpy_e, -1500., 1500.)
+        self.integral_rpy_e[0:2] = np.clip(self.integral_rpy_e[0:2], -1., 1.)
         #### PID target torques ####################################
-        target_torques = np.multiply(self.P_COEFF_TOR, rpy_e) \
-                         + np.multiply(self.I_COEFF_TOR, self.integral_rpy_e) \
-                         + np.multiply(self.D_COEFF_TOR, d_rpy_e)
+        target_torques = - np.multiply(self.P_COEFF_TOR, rot_e) \
+                         + np.multiply(self.D_COEFF_TOR, rpy_rates_e) \
+                         + np.multiply(self.I_COEFF_TOR, self.integral_rpy_e)
+        target_torques = np.clip(target_torques, -3200, 3200)
+        #clip thrust and torque
+
         return nnlsRPM(thrust=thrust,
                        x_torque=target_torques[0],
                        y_torque=target_torques[1],

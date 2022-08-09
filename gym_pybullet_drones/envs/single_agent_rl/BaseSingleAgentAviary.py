@@ -127,7 +127,7 @@ class BaseSingleAgentAviary(BaseAviary):
         #### Set a limit on the maximum target speed ###############
         #Z needs its own speed limit
         if act == ActionType.VEL:
-            self.SPEED_LIMIT = np.array([0.35 * self.MAX_SPEED_KMH * (1000/3600), 0.35 * self.MAX_SPEED_KMH * (1000/3600), 0.12 * self.MAX_SPEED_KMH * (1000/3600)])
+            self.SPEED_LIMIT = np.array([0.17 * self.MAX_SPEED_KMH * (1000/3600), 0.17 * self.MAX_SPEED_KMH * (1000/3600), 0.06 * self.MAX_SPEED_KMH * (1000/3600)])
         #### Try _trajectoryTrackingRPMs exists IFF ActionType.TUN #
         if act == ActionType.TUN and not (hasattr(self.__class__, '_trajectoryTrackingRPMs') and callable(getattr(self.__class__, '_trajectoryTrackingRPMs'))):
                 print("[ERROR] in BaseSingleAgentAviary.__init__(), ActionType.TUN requires an implementation of _trajectoryTrackingRPMs in the instantiated subclass")
@@ -264,7 +264,8 @@ class BaseSingleAgentAviary(BaseAviary):
             else:
                 v_unit_vector = np.zeros(3)
             #it is necessary to limit velocity changes in smooth manner, otherwise controller goes crazy
-            target_vel = 0.15 * (self.SPEED_LIMIT * action[0:3]) + 0.85 * state[10:13]
+            target_vel = 0.2 * (self.SPEED_LIMIT * action[0:3]) + 0.8 * state[10:13]
+            #target_vel = self.SPEED_LIMIT * action[0:3]
             rpm, _, _ = self.ctrl.computeControl(control_timestep=self.AGGR_PHY_STEPS*self.TIMESTEP, 
                                                  cur_pos=state[0:3],
                                                  cur_quat=state[3:7],

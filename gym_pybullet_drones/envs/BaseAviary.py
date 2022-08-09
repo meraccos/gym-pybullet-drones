@@ -657,7 +657,7 @@ class BaseAviary(gym.Env):
         #### Set target point, camera view and projection matrices #
         target = np.dot(rot_mat, np.array([0, 0, -1000])) + np.array(self.pos[nth_drone, :])
 
-        DRONE_CAM_VIEW = p.computeViewMatrix(cameraEyePosition=self.pos[nth_drone, :]+np.array([0, 0, self.L]),
+        DRONE_CAM_VIEW = p.computeViewMatrix(cameraEyePosition=self.pos[nth_drone, :] - np.array([0, 0, 0.15]) +np.array([0, 0, self.L]),
                                              cameraTargetPosition=target,
                                              cameraUpVector=[1, 0, 0],
                                              physicsClientId=self.CLIENT
