@@ -187,7 +187,7 @@ class BaseAviary(gym.Env):
             self.CLIENT = p.connect(p.GUI) # p.connect(p.GUI, options="--opengl2")
             for i in [p.COV_ENABLE_RGB_BUFFER_PREVIEW, p.COV_ENABLE_DEPTH_BUFFER_PREVIEW, p.COV_ENABLE_SEGMENTATION_MARK_PREVIEW]:
                 p.configureDebugVisualizer(i, 0, physicsClientId=self.CLIENT)
-            p.resetDebugVisualizerCamera(cameraDistance=3,
+            p.resetDebugVisualizerCamera(cameraDistance=10,
                                          cameraYaw=-30,
                                          cameraPitch=-30,
                                          cameraTargetPosition=[0, 0, 0],
@@ -269,9 +269,9 @@ class BaseAviary(gym.Env):
         self.gv_force_limit = 600
 
         #### Path to the actual urdf file ##########################
-        self.xacro_file = "/home/user/landing/landing_rl/g_vehicle/car_v2.urdf"
+        self.xacro_file = "/home/user/landing_gpu/landing_rl/g_vehicle/car_v2.urdf"
         #### Path for the to be parsed file ########################
-        self.urdf_file = "/home/user/landing/landing_rl/g_vehicle/parsed.urdf"
+        self.urdf_file = "/home/user/landing_gpu/landing_rl/g_vehicle/parsed.urdf"
 
         parser_command = 'xacro ' + self.xacro_file + ' > ' + self.urdf_file
         os.system(parser_command)
@@ -294,7 +294,7 @@ class BaseAviary(gym.Env):
                                 controlMode=p.VELOCITY_CONTROL, 
                                 targetVelocity=self.gv_velocity, 
                                 force=self.gv_force_limit)
-                                           
+
         return
     
     def _get_vehicle_position(self):
@@ -437,7 +437,7 @@ class BaseAviary(gym.Env):
         self._updateAndStoreKinematicInformation()
         #### Prepare the return values #############################
         obs = self._computeObs()
-        reward = self._computeReward()
+        reward = self._computeReward(action)
         done = self._computeDone()
         info = self._computeInfo()
         #### Advance the step counter ##############################
@@ -518,8 +518,9 @@ class BaseAviary(gym.Env):
 
         """
         #random initial position
-        self.INIT_XYZS_random = 1*np.random.rand(*self.INIT_XYZS.shape) + self.INIT_XYZS
-        #self.INIT_XYZS_random = self.INIT_XYZS
+        #self.INIT_XYZS_random = (-1.5+(1.5*np.random.rand(*self.INIT_XYZS.shape))) + self.INIT_XYZS
+        self.INIT_XYZS_random = (1.0*np.random.rand(*self.INIT_XYZS.shape)) + self.INIT_XYZS
+        #self.INIT_XYZS_random = self.INIT_XYZS -4
         #### Initialize/reset counters and zero-valued variables ###
         self.RESET_TIME = time.time()
         self.step_counter = 0
@@ -657,7 +658,7 @@ class BaseAviary(gym.Env):
         #### Set target point, camera view and projection matrices #
         target = np.dot(rot_mat, np.array([0, 0, -1000])) + np.array(self.pos[nth_drone, :])
 
-        DRONE_CAM_VIEW = p.computeViewMatrix(cameraEyePosition=self.pos[nth_drone, :]+np.array([0, 0, self.L]),
+        DRONE_CAM_VIEW = p.computeViewMatrix(cameraEyePosition=self.pos[nth_drone, :] - np.array([0, 0, 0.15]) +np.array([0, 0, self.L]),
                                              cameraTargetPosition=target,
                                              cameraUpVector=[1, 0, 0],
                                              physicsClientId=self.CLIENT

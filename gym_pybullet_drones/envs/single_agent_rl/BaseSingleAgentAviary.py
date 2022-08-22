@@ -40,7 +40,7 @@ class BaseSingleAgentAviary(BaseAviary):
     ################################################################################
 
     def __init__(self,
-                 drone_model: DroneModel=DroneModel.CF2X,
+                drone_model: DroneModel=DroneModel.HB,
                  initial_xyzs=None,
                  initial_rpys=None,
                  physics: Physics=Physics.PYB,
@@ -86,7 +86,7 @@ class BaseSingleAgentAviary(BaseAviary):
         dynamics_attributes = True if act in [ActionType.DYN, ActionType.ONE_D_DYN] else False
         self.OBS_TYPE = obs
         self.ACT_TYPE = act
-        self.EPISODE_LEN_SEC = 25
+        self.EPISODE_LEN_SEC = 40
         #### Create integrated controllers #########################
         if act in [ActionType.PID, ActionType.VEL, ActionType.TUN, ActionType.ONE_D_PID]:
             os.environ['KMP_DUPLICATE_LIB_OK']='True'
@@ -128,6 +128,7 @@ class BaseSingleAgentAviary(BaseAviary):
         #Z needs its own speed limit
         if act == ActionType.VEL:
             self.SPEED_LIMIT = np.array([0.35 * self.MAX_SPEED_KMH * (1000/3600), 0.35 * self.MAX_SPEED_KMH * (1000/3600), 0.12 * self.MAX_SPEED_KMH * (1000/3600)])
+            #self.SPEED_LIMIT = np.array([0.17 * self.MAX_SPEED_KMH * (1000/3600), 0.17 * self.MAX_SPEED_KMH * (1000/3600), 0.06 * self.MAX_SPEED_KMH * (1000/3600)])
         #### Try _trajectoryTrackingRPMs exists IFF ActionType.TUN #
         if act == ActionType.TUN and not (hasattr(self.__class__, '_trajectoryTrackingRPMs') and callable(getattr(self.__class__, '_trajectoryTrackingRPMs'))):
                 print("[ERROR] in BaseSingleAgentAviary.__init__(), ActionType.TUN requires an implementation of _trajectoryTrackingRPMs in the instantiated subclass")
@@ -181,7 +182,7 @@ class BaseSingleAgentAviary(BaseAviary):
         if self.ACT_TYPE == ActionType.TUN:
             size = 6
         elif self.ACT_TYPE in [ActionType.RPM, ActionType.DYN, ActionType.VEL]:
-            size = 3
+            size = 3 #3
         elif self.ACT_TYPE == ActionType.PID:
             size = 3
         elif self.ACT_TYPE in [ActionType.ONE_D_RPM, ActionType.ONE_D_DYN, ActionType.ONE_D_PID]:
@@ -264,7 +265,8 @@ class BaseSingleAgentAviary(BaseAviary):
             else:
                 v_unit_vector = np.zeros(3)
             #it is necessary to limit velocity changes in smooth manner, otherwise controller goes crazy
-            target_vel = 0.2 * (self.SPEED_LIMIT * action[0:3]) + 0.8 * state[10:13]
+            target_vel = 0.15 * (self.SPEED_LIMIT * action[0:3]) + 0.85 * state[10:13]
+            #target_vel = self.SPEED_LIMIT * action[0:3]
             rpm, _, _ = self.ctrl.computeControl(control_timestep=self.AGGR_PHY_STEPS*self.TIMESTEP, 
                                                  cur_pos=state[0:3],
                                                  cur_quat=state[3:7],
@@ -330,8 +332,17 @@ class BaseSingleAgentAviary(BaseAviary):
             # return spaces.Box( low=obs_lower_bound, high=obs_upper_bound, dtype=np.float32 )
             ############################################################
             #### OBS SPACE OF SIZE 12
-            return spaces.Box(low=np.array([-1,-1,0, -1,-1,-1, -1,-1,-1, -1,-1,-1]),
-                              high=np.array([1,1,1, 1,1,1, 1,1,1, 1,1,1]),
+
+            ############################################################
+            #### OBS OF SIZE 6
+            #### Observation vector ### X        Y        Z       VX       VY       (VZ)       
+            # obs_lower_bound = np.array([-1,      -1,      0,      -1,      -1,      (-1,)      ])
+            # obs_upper_bound = np.array([1,       1,       1,      1,       1,       (1,)       ])          
+            # return spaces.Box( low=obs_lower_bound, high=obs_upper_bound, dtype=np.float32 )
+            ############################################################
+
+            return spaces.Box(low=np.array([-1,-1,0,-1,-1,-1,-1]),
+                              high=np.array([1,1,1,1,1,1,1]),
                               dtype=np.float32
                               )
             ############################################################
@@ -349,9 +360,11 @@ class BaseSingleAgentAviary(BaseAviary):
             A Box() of shape (H,W,4) or (12,) depending on the observation type.
 
         """
+
+
+        ####################################################################
         if self.OBS_TYPE == ObservationType.RGB:
             if self.step_counter%self.IMG_CAPTURE_FREQ == 0: 
-                
                 self.rgb, self.dep[0], self.seg[0] = self._getDroneImages(0,
                                                                              segmentation=False
                                                                              )
@@ -364,17 +377,36 @@ class BaseSingleAgentAviary(BaseAviary):
                                       path=self.ONBOARD_IMG_PATH,
                                       frame_num=int(self.step_counter/self.IMG_CAPTURE_FREQ)
                                       )
-                self.rgb = rgb2gray(self.rgb)[None,:]
+            #self.rgb = rgb2gray(self.rgb)[None,:]
             return self.rgb
         elif self.OBS_TYPE == ObservationType.KIN: 
             obs = self._clipAndNormalizeState(self._getDroneStateVector(0))
+            drone_state = self._getDroneStateVector(0)
             ############################################################
             #### OBS OF SIZE 20 (WITH QUATERNION AND RPMS)
             # return obs
             ############################################################
             #### OBS SPACE OF SIZE 12
-            return np.hstack([obs[0:3], obs[7:10], obs[10:13], obs[13:16]]).reshape(12,)
+            # return np.hstack([obs[0:3], obs[7:10], obs[10:13], obs[13:16]]).reshape(12,)
             ############################################################
+            #Normalrise UGV state
+            MAX_LIN_VEL_XY = 3 
+
+            MAX_XY = MAX_LIN_VEL_XY*self.EPISODE_LEN_SEC
+
+            UGV_pos = (np.clip((np.array(self._get_vehicle_position()[0]))[0:2], -MAX_XY, MAX_XY))/MAX_XY
+            UGV_vel = (np.clip((np.array(self._get_vehicle_velocity()[0]))[0:2], -MAX_LIN_VEL_XY, MAX_LIN_VEL_XY))/MAX_LIN_VEL_XY
+            #############################################################
+            # print("UGV : ", UGV_vel)
+            # print("drone:", obs[10:13])
+            #############################################################
+            C = 0.
+            if drone_state[2] >= 0.275 and p.getContactPoints(bodyA=1) != ():
+                C = 1.
+            #print('ugv pose')
+            #print(UGV_pos)
+            return np.hstack([obs[0:2]-UGV_pos,obs[2],obs[10:12]-UGV_vel,obs[12],[C]]).reshape(7,)
+            # return np.hstack([obs[0:2]-UGV_pos,obs[2],obs[10:12]-UGV_vel,[C]]).reshape(6,) # const z
         else:
             print("[ERROR] in BaseSingleAgentAviary._computeObs()")
     

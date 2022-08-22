@@ -114,6 +114,11 @@ def nnlsRPM(thrust,
         print("[WARNING] iter", counter, "in utils.nnlsRPM(), unfeasible pitch torque {:.2f} outside range [{:.2f}, {:.2f}]".format(y_torque, -max_xy_torque, max_xy_torque))
     if gui and np.abs(z_torque) > max_z_torque:
         print("[WARNING] iter", counter, "in utils.nnlsRPM(), unfeasible yaw torque {:.2f} outside range [{:.2f}, {:.2f}]".format(z_torque, -max_z_torque, max_z_torque))
+    #clip values
+    thrust = np.clip(thrust,0, max_thrust)
+    x_torque = np.clip(x_torque, -max_xy_torque, max_xy_torque)
+    y_torque = np.clip(y_torque, -max_xy_torque, max_xy_torque)
+    z_torque = np.clip(z_torque, -max_z_torque, max_z_torque)
     B = np.multiply(np.array([thrust, x_torque, y_torque, z_torque]), b_coeff)
     sq_rpm = np.dot(inv_a, B)
     #### NNLS if any of the desired ang vel is negative ########
