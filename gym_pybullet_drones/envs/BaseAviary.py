@@ -260,7 +260,7 @@ class BaseAviary(gym.Env):
     def _initialize_ground_vehicle(self):
         """ Initializes the vehicle model """
         #### Desired velocity ######################################
-        self.gv_velocity = 18
+        self.gv_velocity = 18 - 6*np.random.rand()
         #### The wheel bar joints ##################################
         self.gv_joint = [1, 4]
         #### The helipad circle link id  ###########################
@@ -519,6 +519,7 @@ class BaseAviary(gym.Env):
         """
         #random initial position
         self.INIT_XYZS_random = (-3+(6*np.random.rand(*self.INIT_XYZS.shape))) + self.INIT_XYZS
+        #random inital velocity
         #self.INIT_XYZS_random = self.INIT_XYZS -4
         #### Initialize/reset counters and zero-valued variables ###
         self.RESET_TIME = time.time()

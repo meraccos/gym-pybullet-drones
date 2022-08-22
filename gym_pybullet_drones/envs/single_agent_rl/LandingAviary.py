@@ -10,7 +10,7 @@ class LandingAviary(BaseSingleAgentAviary):
     
     ################################################################################
     def __init__(self,
-                 drone_model: DroneModel=DroneModel.HB,
+                 drone_model: DroneModel=DroneModel.CF2X,
                  initial_xyzs=np.array([0,0,10]),
                  initial_rpys=None,
                  physics: Physics=Physics.PYB_GND_DRAG_DW,
@@ -118,7 +118,7 @@ class LandingAviary(BaseSingleAgentAviary):
         #if combined_reward < 0:
         #    print(drone_velocity)
         #    exit()
-        if drone_position[2] >= 0.431 and p.getContactPoints(bodyA=1) != ():
+        if drone_position[2] >= 0.275 and p.getContactPoints(bodyA=1) != ():
             print('landed!')
             combined_reward =  120 + combined_reward
         elif drone_position[2] < 0.275 and p.getContactPoints(bodyA=1) != ():
@@ -174,7 +174,7 @@ class LandingAviary(BaseSingleAgentAviary):
         UGV_pos = np.array(self._get_vehicle_position()[0])
         x_pos_error = np.linalg.norm(drone_position[0]-UGV_pos[0])
         y_pos_error = np.linalg.norm(drone_position[1]-UGV_pos[1])
-        if drone_position[2] >= 0.431 and p.getContactPoints(bodyA=1) != ():
+        if drone_position[2] >= 0.275 and p.getContactPoints(bodyA=1) != ():
             Landing_flag = True
         else:
             Landing_flag = False
