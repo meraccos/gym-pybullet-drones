@@ -14,6 +14,8 @@ import pybullet_data
 import gym
 from PIL import Image
 from scipy.spatial.transform import Rotation
+import matplotlib
+import matplotlib.pyplot as plt
 class DroneModel(Enum):
     """Drone models enumeration class."""
 
@@ -63,6 +65,7 @@ class BaseAviary(gym.Env):
                  aggregate_phy_steps: int=10,
                  gui=False,
                  record=False,
+                 record_chase = True,
                  obstacles=False,
                  user_debug_gui=True,
                  vision_attributes=False,
@@ -116,6 +119,7 @@ class BaseAviary(gym.Env):
         self.DRONE_MODEL = drone_model
         self.GUI = gui
         self.RECORD = record
+        self.RECORD_CHASE = record_chase
         self.PHYSICS = physics
         self.OBSTACLES = obstacles
         self.USER_DEBUG = user_debug_gui
@@ -172,6 +176,9 @@ class BaseAviary(gym.Env):
             if self.RECORD:
                 self.ONBOARD_IMG_PATH = os.path.dirname(os.path.abspath(__file__))+"/../../files/videos/onboard-"+datetime.now().strftime("%m.%d.%Y_%H.%M.%S")+"/"
                 os.makedirs(os.path.dirname(self.ONBOARD_IMG_PATH), exist_ok=True)
+            if self.RECORD_CHASE:
+                self.CHASE_IMG_PATH = os.path.dirname(os.path.abspath(__file__))+"/../../files/videos_chase/onboard-"+datetime.now().strftime("%m.%d.%Y_%H.%M.%S")+"/"
+                os.makedirs(os.path.dirname(self.CHASE_IMG_PATH), exist_ok=True)
         #### Create attributes for dynamics control inputs #########
         self.DYNAMICS_ATTR = dynamics_attributes
         if self.DYNAMICS_ATTR:
@@ -227,6 +234,7 @@ class BaseAviary(gym.Env):
                                                             nearVal=0.1,
                                                             farVal=1000.0
                                                             )
+
         #### Set initial poses #####################################
         initial_xyzs = initial_xyzs.reshape(self.NUM_DRONES,3)
         if initial_xyzs is None:
@@ -254,7 +262,10 @@ class BaseAviary(gym.Env):
         self._startVideoRecording()
         #### Load the ground vehicle ###############################
         self._initialize_ground_vehicle()
-    
+        ##initialise lists for positions
+        if self.RECORD_CHASE:
+            self.gv_poss_list = []
+            self.uav_poss_list = []
     ################################################################################
 
     def _initialize_ground_vehicle(self):
@@ -301,7 +312,15 @@ class BaseAviary(gym.Env):
         """ Returns the helipad center position and orientation """
         return p.getLinkState(self.vehicleId, self.gv_circleLink)[0:2]
 
+    def get_vehicle_position(self):
+        """ Returns the helipad center position and orientation """
+        return p.getLinkState(self.vehicleId, self.gv_circleLink)[0:2]
+
     def _get_vehicle_velocity(self):
+        """ Returns the linear and angular velocity of the vehicle """
+        return p.getBaseVelocity(self.vehicleId)
+
+    def get_vehicle_velocity(self):
         """ Returns the linear and angular velocity of the vehicle """
         return p.getBaseVelocity(self.vehicleId)
     
@@ -377,6 +396,55 @@ class BaseAviary(gym.Env):
             # seg = ((seg-np.min(seg)) * 255 / (np.max(seg)-np.min(seg))).astype('uint8')
             # (Image.fromarray(np.reshape(seg, (h, w)))).save(self.IMG_PATH+"frame_"+str(self.FRAME_NUM)+".png")
             self.FRAME_NUM += 1
+        if self.RECORD_CHASE and not self.GUI and self.step_counter%self.CAPTURE_FREQ == 0:
+            nth_drone = 0
+            gv_pos = np.array(self._get_vehicle_position()[0])
+            #### Set target point, camera view and projection matrices #
+            target = gv_pos + np.array([0.0,0,0])#np.dot(rot_mat, np.array([0, 0, -1000])) + np.array(self.pos[nth_drone, :]
+            DRONE_CAM_VIEW = p.computeViewMatrix(cameraEyePosition=self.pos[nth_drone, :] + np.array([0, 0, 0.75]) +np.array([0, 0, self.L]),
+                                                cameraTargetPosition=target,
+                                                cameraUpVector=[1, 0, 0],
+                                                physicsClientId=self.CLIENT
+                                                )
+            DRONE_CAM_PRO =  p.computeProjectionMatrixFOV(fov=60.0,
+                                                        aspect=1.0,
+                                                        nearVal=self.L,
+                                                        farVal=1000.0
+                                                        )
+            #SEG_FLAG = p.ER_SEGMENTATION_MASK_OBJECT_AND_LINKINDEX if segmentation else p.ER_NO_SEGMENTATION_MASK
+            SEG_FLAG = True
+            [w, h, rgb, dep, seg] = p.getCameraImage(width=882,
+                                                    height=836,
+                                                    shadow=1,
+                                                    viewMatrix=DRONE_CAM_VIEW,
+                                                    projectionMatrix=DRONE_CAM_PRO,
+                                                    renderer=p.ER_TINY_RENDERER,
+                                                    flags=p.ER_SEGMENTATION_MASK_OBJECT_AND_LINKINDEX,
+                                                    physicsClientId=self.CLIENT
+                                                    )
+            (Image.fromarray(np.reshape(rgb, (h, w, 4)), 'RGBA')).save(self.IMG_PATH_CHASE+"frame_"+str(self.FRAME_NUM)+".png")
+            #create matplotlib and record frames from that
+            fig = plt.figure()
+            ax = plt.axes(projection ='3d')
+            uav_pos = self.pos[0,:]
+            gv_pos = self.get_vehicle_position()[0]
+            self.gv_poss_list.append(gv_pos)
+            self.uav_poss_list.append(uav_pos.copy())
+            uav_poss = np.array(self.uav_poss_list)
+            gv_poss = np.array(self.gv_poss_list)
+            ax.plot3D(uav_poss[:,0], uav_poss[:,1], uav_poss[:,2], 'green', label = "UAS trajectory",linewidth=4.0)
+            ax.plot3D(gv_poss[:,0], gv_poss[:,1], gv_poss[:,2], 'red', label = "Landing platform trajectory",linewidth=4.0, linestyle = '--')
+            ax.set_xlabel('x-position (m)', labelpad=8)
+            # naming the y axis
+            ax.set_ylabel('y-position (m)', labelpad=8)
+            ax.set_zlabel('z-position (m)', labelpad=8)
+            ax.legend(fontsize = 14, loc='upper left')
+            ax.axes.set_xlim3d(left=-1, right=15) 
+            ax.axes.set_ylim3d(bottom=-4, top=4) 
+            ax.axes.set_zlim3d(bottom=-0, top=13)
+            graph_path = self.IMG_PATH_GRAPH+"frame_"+str(self.FRAME_NUM)+".png"
+            plt.savefig(graph_path, bbox_inches='tight', dpi=200)
+            plt.close()
         #### Read the GUI's input parameters #######################
         if self.GUI and self.USER_DEBUG:
             current_input_switch = p.readUserDebugParameter(self.INPUT_SWITCH, physicsClientId=self.CLIENT)
@@ -594,10 +662,16 @@ class BaseAviary(gym.Env):
                                                 fileName=os.path.dirname(os.path.abspath(__file__))+"/../../files/videos/video-"+datetime.now().strftime("%m.%d.%Y_%H.%M.%S")+".mp4",
                                                 physicsClientId=self.CLIENT
                                                 )
+        video_time = datetime.now().strftime("%m.%d.%Y_%H.%M.%S")
         if self.RECORD and not self.GUI:
             self.FRAME_NUM = 0
-            self.IMG_PATH = os.path.dirname(os.path.abspath(__file__))+"/../../files/videos/video-"+datetime.now().strftime("%m.%d.%Y_%H.%M.%S")+"/"
+            self.IMG_PATH = os.path.dirname(os.path.abspath(__file__))+"/../../files/videos/video-"+video_time+"/"
             os.makedirs(os.path.dirname(self.IMG_PATH), exist_ok=True)
+        if self.RECORD_CHASE and not self.GUI:
+            self.IMG_PATH_CHASE = os.path.dirname(os.path.abspath(__file__))+"/../../files/videos_chase/video-"+video_time+"/"
+            os.makedirs(os.path.dirname(self.IMG_PATH_CHASE), exist_ok=True)
+            self.IMG_PATH_GRAPH = os.path.dirname(os.path.abspath(__file__))+"/../../files/videos_graph/video-"+video_time+"/"
+            os.makedirs(os.path.dirname(self.IMG_PATH_GRAPH), exist_ok=True)
     
     ################################################################################
 

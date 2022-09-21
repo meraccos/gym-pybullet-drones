@@ -17,7 +17,7 @@ class LandingAviary(BaseSingleAgentAviary):
                  freq: int= 240,
                  aggregate_phy_steps: int=10,
                  gui=False,
-                 record=False, 
+                 record=True, 
                  obs: ObservationType=ObservationType.RGB,
                  act: ActionType=ActionType.VEL,
                  ):
@@ -62,14 +62,47 @@ class LandingAviary(BaseSingleAgentAviary):
                          act=act,
                          )
     
+    def video_camera(self):
+        #rot_mat = np.array(p.getMatrixFromQuaternion(self.quat[nth_drone, :])).reshape(3, 3)
+        nth_drone = 0
+        gv_pos = np.array(self._get_vehicle_position()[0])
+        #### Set target point, camera view and projection matrices #
+        target = gv_pos#np.dot(rot_mat, np.array([0, 0, -1000])) + np.array(self.pos[nth_drone, :])
+
+        DRONE_CAM_VIEW = p.computeViewMatrix(cameraEyePosition=self.pos[nth_drone, :] + np.array([0, 0, 0.5]) +np.array([0, 0, self.L]),
+                                             cameraTargetPosition=target,
+                                             cameraUpVector=[1, 0, 0],
+                                             physicsClientId=self.CLIENT
+                                             )
+        DRONE_CAM_PRO =  p.computeProjectionMatrixFOV(fov=60.0,
+                                                      aspect=1.0,
+                                                      nearVal=self.L,
+                                                      farVal=1000.0
+                                                      )
+        #SEG_FLAG = p.ER_SEGMENTATION_MASK_OBJECT_AND_LINKINDEX if segmentation else p.ER_NO_SEGMENTATION_MASK
+        SEG_FLAG = True
+        [w, h, rgb, dep, seg] = p.getCameraImage(width=128,
+                                                 height=128,
+                                                 shadow=1,
+                                                 viewMatrix=DRONE_CAM_VIEW,
+                                                 projectionMatrix=DRONE_CAM_PRO,
+                                                 flags=SEG_FLAG,
+                                                 physicsClientId=self.CLIENT
+                                                 )
+        #rgb = np.pad(rgb, ((8,8),(0,0),(0,0)), 'constant')                                
+        #rgb = np.reshape(rgb, (h, w, 4))
+        #print(rgb.shape)
+        #rgb = np.moveaxis(rgb, -1, 0)
+        #dep = np.reshape(dep, (h, w))
+        #seg = np.reshape(seg, (h, w))
+        return rgb
+    
     def _computeReward(self):
         """Computes the current reward value.
-
         Returns
         -------
         float
             The reward.
-
         """
         lambda_error = 1/3
         desired_z_velocity = -0.5
