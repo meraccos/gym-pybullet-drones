@@ -4,6 +4,7 @@ from gym import spaces
 from gym_pybullet_drones.envs.BaseAviary import DroneModel, Physics, BaseAviary
 from gym_pybullet_drones.envs.single_agent_rl.BaseSingleAgentAviary import ActionType, ObservationType, BaseSingleAgentAviary
 import pybullet as p
+from gym_pybullet_drones.utils.specs import BoundedArray
 
 class LandingAviary(BaseSingleAgentAviary):
     """Single agent RL problem: take-off."""
@@ -104,15 +105,15 @@ class LandingAviary(BaseSingleAgentAviary):
         #reward_xy_velocity = np.sum(-np.abs(drone_velocity[0:2]- desired_xy_velocity))
         if distance_xy < 10:
             normalized_distance_xy = 0.1*(10 - distance_xy)
-            reward_xy = (20**normalized_distance_xy -1)/(20 -1)
+            reward_xy = (30**normalized_distance_xy -1)/(30 -1)
         else:
             reward_xy = 0 #-distance_xy
         if distance_z < 10:
             normalized_distance_z = 0.1*(10-distance_z)
-            reward_z = (20**normalized_distance_z -1)/(20 -1)
+            reward_z = (30**normalized_distance_z -1)/(30 -1)
         else:
             reward_z = 0
-        combined_reward = 0.4*reward_xy + 1.0*reward_z_velocity#+ 0.2*reward_z + reward_z_velocity #np.tanh(reward_z_velocity) #+ reward_xy_velocity
+        combined_reward = 0.8*reward_xy + 1.0*reward_z_velocity#+ 0.2*reward_z + reward_z_velocity #np.tanh(reward_z_velocity) #+ reward_xy_velocity
         #print(distance_xy)
         #combined_reward = np.sum(combined_reward)
         #if combined_reward < 0:
@@ -123,7 +124,7 @@ class LandingAviary(BaseSingleAgentAviary):
             combined_reward =  120 + combined_reward
         elif drone_position[2] < 0.275 and p.getContactPoints(bodyA=1) != ():
             print('crashed!')
-            combined_reward = -0.01 #normalized_distance_xy * 10 #0#5*distance_xy + combined_reward
+            combined_reward = -1 #normalized_distance_xy * 10 #0#5*distance_xy + combined_reward
         else:
             combined_reward =  combined_reward
         distance_x = np.abs(drone_position[0]-UGV_pos[0])
@@ -178,8 +179,13 @@ class LandingAviary(BaseSingleAgentAviary):
             Landing_flag = True
         else:
             Landing_flag = False
-        
+        #episode end returns true when landing ends up on the ground i.e. the episode should truely finish
+        if p.getContactPoints(bodyA=1) != ():
+            episode_end = True
+        else:
+            episode_end = False
         return {"landing": Landing_flag,
+                "episode end flag": episode_end,
                 "x error": x_pos_error,
                 "y error": y_pos_error} #### Calculated by the Deep Thought supercomputer in 7.5M years
 
@@ -280,6 +286,4 @@ class LandingAviary(BaseSingleAgentAviary):
             print("[WARNING] it", self.step_counter, "in TakeoffAviary._clipAndNormalizeState(), clipped xy velocity [{:.2f} {:.2f}]".format(state[10], state[11]))
         if not(clipped_vel_z == np.array(state[12])).all():
             print("[WARNING] it", self.step_counter, "in TakeoffAviary._clipAndNormalizeState(), clipped z velocity [{:.2f}]".format(state[12]))
-
-
-    
+    # for cross compatbility with dm gym
