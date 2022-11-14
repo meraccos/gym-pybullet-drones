@@ -1,4 +1,6 @@
 import os
+import glob
+import random
 from sys import platform
 import time
 import collections
@@ -6,14 +8,13 @@ from datetime import datetime
 from enum import Enum
 import xml.etree.ElementTree as etxml
 from PIL import Image
-# import pkgutil
-# egl = pkgutil.get_loader('eglRenderer')
 import numpy as np
 import pybullet as p
 import pybullet_data
 import gym
 from PIL import Image
 from scipy.spatial.transform import Rotation
+
 class DroneModel(Enum):
     """Drone models enumeration class."""
 
@@ -68,8 +69,6 @@ class BaseAviary(gym.Env):
                  vision_attributes=False,
                  dynamics_attributes=False
                  ):
-        self.gv_velocity = 3
-        self.gv_pos = [0.2, 0.2, 0]
         """Initialization of a generic aviary environment.
 
         Parameters
@@ -225,6 +224,7 @@ class BaseAviary(gym.Env):
                                                             farVal=1000.0
                                                             )
         #### Set initial poses #####################################
+        initial_xyzs = initial_xyzs.reshape(self.NUM_DRONES,3)
         if initial_xyzs is None:
             self.INIT_XYZS = np.vstack([np.array([x*4*self.L for x in range(self.NUM_DRONES)]), \
                                         np.array([y*4*self.L for y in range(self.NUM_DRONES)]), \
@@ -242,44 +242,81 @@ class BaseAviary(gym.Env):
         #### Create action and observation spaces ##################
         self.action_space = self._actionSpace()
         self.observation_space = self._observationSpace()
+        #### Initialize the ground vehicle  and colors #############
+        self._initialize_ground_vehicle()
         #### Housekeeping ##########################################
         self._housekeeping()
         #### Update and store the drones kinematic information #####
         self._updateAndStoreKinematicInformation()
         #### Start video recording #################################
         self._startVideoRecording()
-        #### Load the ground vehicle ###############################
-        self._initialize_ground_vehicle()
     
-    ################################################################################
+    ###############################################################################
 
     def _initialize_ground_vehicle(self):
-        """ Initializes the vehicle model """
-        #### Desired velocity ######################################
-        # self.gv_velocity = 0
-        #### The wheel bar joints ##################################
-        self.gv_joint = [1, 4]
-        #### The helipad circle link id  ###########################
-        self.gv_circleLink = 9
-        #### Max force to reach the desired velocity ###############
-        self.gv_force_limit = 600
+        """ Initializes the vehicle model and colors """
 
-        #### Path to the actual urdf file ##########################
-        self.xacro_file = "/home/user/landing/landing_rl/g_vehicle/car_v3.urdf"
-        #### Path for the to be parsed file ########################
+        #### Path to GV URDF file ##################################
+        self.xacro_file = "/home/user/landing/landing_rl/g_vehicle/car_v2.urdf"
+        #### Path to the file to be parsed #########################
         self.urdf_file = "/home/user/landing/landing_rl/g_vehicle/parsed.urdf"
+        #### Path to the plane URDF file## #########################
+        self.plane_path = '/home/user/miniconda3/lib/python3.7/site-packages/pybullet_data/plane.urdf'
+
+        base_color = ['0.0', '1.0', '1.0', '1.0']         # ['0.0', '1.0', '0.0', '1.0']
+        circle_color = ['0.0', '0.3', '0.0', '1.0']       # ['1.0', '0.0', '0.0', '1.0']
+        plane_color = ['1.0', '1.0', '1.0', '1.0']        # ['1.0', '1.0', '1.0', '1.0']
+
+        mycar = open(self.xacro_file, 'r')
+        lines = mycar.readlines()
+        mycar.close()
+
+        for index, line in enumerate(lines):
+            if line == '  <material name="base_color">\n':
+                lines[index+1] = '    <color rgba="{} {} {} {}"/>\n'.format(*base_color)
+            if line == '  <material name="circle_color">\n':
+                lines[index+1] = '    <color rgba="{} {} {} {}"/>\n'.format(*circle_color)
+
+        mycar = open(self.xacro_file, 'w')
+        mycar.writelines(lines)
+        mycar.close()
+        myplane = open(self.plane_path, 'r')
+        lines = myplane.readlines()
+        myplane.close()
+        for index, line in enumerate(lines):
+            if line == '       <material name="white">\n':
+                lines[index+1] = '        <color rgba="{} {} {} {}"/>\n'.format(*plane_color)
+        myplane = open(self.plane_path, 'w')
+        lines = myplane.writelines(lines)
+        myplane.close()
 
         parser_command = 'xacro ' + self.xacro_file + ' > ' + self.urdf_file
         os.system(parser_command)
-
-        self._load_ground_vehicle()
         
         return
     
     def _load_ground_vehicle(self):
         """ Loads the vehicle model at every reset """
-        # self.gv_pos = [0.2,0.2,0]
+        #### Desired GV init position ##############################
+        self.gv_pos = [0.2,0.2,0]
+        #### Desired velocity ######################################
+        # self.gv_velocity = 18 - 6*np.random.rand()
+        self.gv_velocity = 1
+        #### Max force to reach the desired velocity ###############
+        self.gv_force_limit = 600
         self.vehicleId = p.loadURDF(self.urdf_file, basePosition = self.gv_pos)
+
+
+
+
+        # p.changeVisualShape(sphere,linkIndex,rgbaColor=[red,green,blue,1])
+
+
+        #### The wheel bar joints ##################################
+        self.gv_joint = [1, 4]
+        #### The helipad circle link id  ###########################
+        self.gv_circleLink = 9
+
         p.setJointMotorControl2(bodyUniqueId=self.vehicleId, 
                                 jointIndex=self.gv_joint[0], 
                                 controlMode=p.VELOCITY_CONTROL, 
@@ -524,6 +561,8 @@ class BaseAviary(gym.Env):
         in the `reset()` function.
 
         """
+        self.INIT_XYZS_random = (-3+(6*np.random.rand(*self.INIT_XYZS.shape))) + self.INIT_XYZS
+        # self.INIT_XYZS_random = self.INIT_XYZS
         #### Initialize/reset counters and zero-valued variables ###
         self.RESET_TIME = time.time()
         self.step_counter = 0
@@ -552,8 +591,21 @@ class BaseAviary(gym.Env):
         p.setAdditionalSearchPath(pybullet_data.getDataPath(), physicsClientId=self.CLIENT)
         #### Load ground plane, drone and obstacles models #########
         self.PLANE_ID = p.loadURDF("plane.urdf", physicsClientId=self.CLIENT)
+
+
+
+        dtd_path = '/root/gym-pybullet-drones/gym_pybullet_drones/envs/single_agent_rl/dtd'
+        texture_paths = glob.glob(os.path.join(dtd_path, '**', '*.jpg'), recursive=True)
+        random_texture_path = texture_paths[random.randint(0, len(texture_paths) - 1)]
+        random_texture_path ='/root/gym-pybullet-drones/gym_pybullet_drones/envs/single_agent_rl/dtd/asp_test.jpeg' 
+        textureId = p.loadTexture(random_texture_path)
+        p.changeVisualShape(self.PLANE_ID, -1, textureUniqueId=textureId)
+
+
+
+        # self.PLANE_ID = p.loadSDF("/home/user/miniconda3/lib/python3.7/site-packages/pybullet_data/plane_stadium.sdf", physicsClientId=self.CLIENT)
         self.DRONE_IDS = np.array([p.loadURDF(os.path.dirname(os.path.abspath(__file__))+"/../assets/"+self.URDF,
-                                              self.INIT_XYZS[i,:],
+                                              self.INIT_XYZS_random[i,:],
                                               p.getQuaternionFromEuler(self.INIT_RPYS[i,:]),
                                               flags = p.URDF_USE_INERTIA_FROM_FILE,
                                               physicsClientId=self.CLIENT
@@ -568,6 +620,7 @@ class BaseAviary(gym.Env):
             # p.setCollisionFilterPair(bodyUniqueIdA=self.PLANE_ID, bodyUniqueIdB=self.DRONE_IDS[i], linkIndexA=-1, linkIndexB=-1, enableCollision=0, physicsClientId=self.CLIENT)
         if self.OBSTACLES:
             self._addObstacles()
+        self.ctrl.reset()
     
     ################################################################################
 
@@ -661,7 +714,7 @@ class BaseAviary(gym.Env):
         #### Set target point, camera view and projection matrices #
         target = np.dot(rot_mat, np.array([0, 0, -1000])) + np.array(self.pos[nth_drone, :])
 
-        DRONE_CAM_VIEW = p.computeViewMatrix(cameraEyePosition=self.pos[nth_drone, :]+np.array([0, 0, self.L]),
+        DRONE_CAM_VIEW = p.computeViewMatrix(cameraEyePosition=self.pos[nth_drone, :]+[0, 0, -0.05]+np.array([0, 0, self.L]),
                                              cameraTargetPosition=target,
                                              cameraUpVector=[1, 0, 0],
                                              physicsClientId=self.CLIENT

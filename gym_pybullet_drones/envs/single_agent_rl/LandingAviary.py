@@ -12,13 +12,13 @@ class LandingAviary(BaseSingleAgentAviary):
 
     def __init__(self,
                  drone_model: DroneModel=DroneModel.CF2X,
-                 initial_xyzs=None,
+                 initial_xyzs=np.array([0,0,5]),
                  initial_rpys=None,
                  physics: Physics=Physics.PYB,
                  freq: int= 240,
                  aggregate_phy_steps: int=10,
-                 gui=True,
-                 record=True, 
+                 gui=False,
+                 record=False, 
                  obs: ObservationType=ObservationType.RGB,
                  act: ActionType=ActionType.VEL,
                  ):
@@ -62,7 +62,7 @@ class LandingAviary(BaseSingleAgentAviary):
                          obs=obs,
                          act=act,
                          )
-    
+
     def _computeReward(self):
         """Computes the current reward value.
 
@@ -89,6 +89,8 @@ class LandingAviary(BaseSingleAgentAviary):
             Whether the current episode is done.
 
         """
+        if p.getContactPoints(bodyA=1) != ():
+            return True
         if self.step_counter/self.SIM_FREQ > self.EPISODE_LEN_SEC:
             return True
         else:
@@ -106,8 +108,24 @@ class LandingAviary(BaseSingleAgentAviary):
             Dummy value.
 
         """
+        drone_state = self._getDroneStateVector(0)
+        drone_position = drone_state[0:3]
+        UGV_pos = np.array(self._get_vehicle_position()[0])
+        x_pos_error = np.linalg.norm(drone_position[0]-UGV_pos[0])
+        y_pos_error = np.linalg.norm(drone_position[1]-UGV_pos[1])
+        if drone_position[2] >= 0.275 and p.getContactPoints(bodyA=1) != ():
+            print('landed')
+            Landing_flag = True
+        else:
+            Landing_flag = False
+        
+        return {"landing": Landing_flag,
+                "x error": x_pos_error,
+                "y error": y_pos_error,
+                "drone_state": [self.pos[0], self.rpy[0], self.quat[0]],
+                "GV_state": UGV_pos} #### Calculated by the Deep Thought supercomputer in 7.5M years
         # return {"answer": 42} #### Calculated by the Deep Thought supercomputer in 7.5M years
-        return [self.pos[0], self.rpy[0], self.quat[0]]
+        #return [self.pos[0], self.rpy[0], self.quat[0]]
 
     def _resetPosition(self):
         PYB_CLIENT = self.getPyBulletClient()

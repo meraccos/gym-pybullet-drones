@@ -48,7 +48,7 @@ class BaseSingleAgentAviary(BaseAviary):
                  gui=False,
                  record=False, 
                  obs: ObservationType=ObservationType.KIN,
-                 act: ActionType=ActionType.RPM
+                 act: ActionType=ActionType.TUN
                  ):
         """Initialization of a generic single agent RL environment.
 
@@ -85,7 +85,7 @@ class BaseSingleAgentAviary(BaseAviary):
         dynamics_attributes = True if act in [ActionType.DYN, ActionType.ONE_D_DYN] else False
         self.OBS_TYPE = obs
         self.ACT_TYPE = act
-        self.EPISODE_LEN_SEC = 20
+        self.EPISODE_LEN_SEC = 40
         #### Create integrated controllers #########################
         if act in [ActionType.PID, ActionType.VEL, ActionType.TUN, ActionType.ONE_D_PID]:
             os.environ['KMP_DUPLICATE_LIB_OK']='True'
@@ -125,7 +125,7 @@ class BaseSingleAgentAviary(BaseAviary):
                          )
         #### Set a limit on the maximum target speed ###############
         if act == ActionType.VEL:
-            self.SPEED_LIMIT = 0.03 * self.MAX_SPEED_KMH * (1000/3600)
+            self.SPEED_LIMIT = np.array([0.35 * self.MAX_SPEED_KMH * (1000/3600), 0.35 * self.MAX_SPEED_KMH * (1000/3600), 0.12 * self.MAX_SPEED_KMH * (1000/3600)])
         #### Try _trajectoryTrackingRPMs exists IFF ActionType.TUN #
         if act == ActionType.TUN and not (hasattr(self.__class__, '_trajectoryTrackingRPMs') and callable(getattr(self.__class__, '_trajectoryTrackingRPMs'))):
                 print("[ERROR] in BaseSingleAgentAviary.__init__(), ActionType.TUN requires an implementation of _trajectoryTrackingRPMs in the instantiated subclass")
@@ -253,6 +253,7 @@ class BaseSingleAgentAviary(BaseAviary):
             return rpm
         elif self.ACT_TYPE == ActionType.VEL:
             state = self._getDroneStateVector(0)
+            target_vel = 0.15 * (self.SPEED_LIMIT * action[0:3]) + 0.85 * state[10:13]
             if np.linalg.norm(action[0:3]) != 0:
                 v_unit_vector = action[0:3] / np.linalg.norm(action[0:3])
             else:
@@ -264,7 +265,7 @@ class BaseSingleAgentAviary(BaseAviary):
                                                  cur_ang_vel=state[13:16],
                                                  target_pos=state[0:3], # same as the current position
                                                  target_rpy=np.array([0,0,state[9]]), # keep current yaw
-                                                 target_vel=action # target the desired velocity vector
+                                                 target_vel=target_vel # target the desired velocity vector
                                                  )
             return rpm
         elif self.ACT_TYPE == ActionType.ONE_D_RPM:
