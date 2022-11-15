@@ -242,8 +242,8 @@ class BaseAviary(gym.Env):
         #### Create action and observation spaces ##################
         self.action_space = self._actionSpace()
         self.observation_space = self._observationSpace()
-        #### Initialize the ground vehicle  and colors #############
-        self._initialize_ground_vehicle()
+        # #### Initialize the ground vehicle  and colors #############
+        # self._initialize_ground_vehicle()
         #### Housekeeping ##########################################
         self._housekeeping()
         #### Update and store the drones kinematic information #####
@@ -253,83 +253,83 @@ class BaseAviary(gym.Env):
     
     ###############################################################################
 
-    def _initialize_ground_vehicle(self):
-        """ Initializes the vehicle model and colors """
+    # def _initialize_ground_vehicle(self):
+    #     """ Initializes the vehicle model and colors """
 
-        #### Path to GV URDF file ##################################
-        self.xacro_file = "/home/user/landing/landing_rl/g_vehicle/car_v2.urdf"
-        #### Path to the file to be parsed #########################
-        self.urdf_file = "/home/user/landing/landing_rl/g_vehicle/parsed.urdf"
-        #### Path to the plane URDF file## #########################
-        self.plane_path = '/home/user/miniconda3/lib/python3.7/site-packages/pybullet_data/plane.urdf'
+    #     #### Path to GV URDF file ##################################
+    #     self.xacro_file = "/home/user/landing/landing_rl/g_vehicle/car_v2.urdf"
+    #     #### Path to the file to be parsed #########################
+    #     self.urdf_file = "/home/user/landing/landing_rl/g_vehicle/parsed.urdf"
+    #     #### Path to the plane URDF file## #########################
+    #     self.plane_path = '/home/user/miniconda3/lib/python3.7/site-packages/pybullet_data/plane.urdf'
 
-        base_color = ['0.0', '1.0', '1.0', '1.0']         # ['0.0', '1.0', '0.0', '1.0']
-        circle_color = ['0.0', '0.3', '0.0', '1.0']       # ['1.0', '0.0', '0.0', '1.0']
-        plane_color = ['1.0', '1.0', '1.0', '1.0']        # ['1.0', '1.0', '1.0', '1.0']
+    #     base_color = ['0.0', '1.0', '1.0', '1.0']         # ['0.0', '1.0', '0.0', '1.0']
+    #     circle_color = ['0.0', '0.3', '0.0', '1.0']       # ['1.0', '0.0', '0.0', '1.0']
+    #     plane_color = ['1.0', '1.0', '1.0', '1.0']        # ['1.0', '1.0', '1.0', '1.0']
 
-        mycar = open(self.xacro_file, 'r')
-        lines = mycar.readlines()
-        mycar.close()
+    #     mycar = open(self.xacro_file, 'r')
+    #     lines = mycar.readlines()
+    #     mycar.close()
 
-        for index, line in enumerate(lines):
-            if line == '  <material name="base_color">\n':
-                lines[index+1] = '    <color rgba="{} {} {} {}"/>\n'.format(*base_color)
-            if line == '  <material name="circle_color">\n':
-                lines[index+1] = '    <color rgba="{} {} {} {}"/>\n'.format(*circle_color)
+    #     for index, line in enumerate(lines):
+    #         if line == '  <material name="base_color">\n':
+    #             lines[index+1] = '    <color rgba="{} {} {} {}"/>\n'.format(*base_color)
+    #         if line == '  <material name="circle_color">\n':
+    #             lines[index+1] = '    <color rgba="{} {} {} {}"/>\n'.format(*circle_color)
 
-        mycar = open(self.xacro_file, 'w')
-        mycar.writelines(lines)
-        mycar.close()
-        myplane = open(self.plane_path, 'r')
-        lines = myplane.readlines()
-        myplane.close()
-        for index, line in enumerate(lines):
-            if line == '       <material name="white">\n':
-                lines[index+1] = '        <color rgba="{} {} {} {}"/>\n'.format(*plane_color)
-        myplane = open(self.plane_path, 'w')
-        lines = myplane.writelines(lines)
-        myplane.close()
+    #     mycar = open(self.xacro_file, 'w')
+    #     mycar.writelines(lines)
+    #     mycar.close()
+    #     myplane = open(self.plane_path, 'r')
+    #     lines = myplane.readlines()
+    #     myplane.close()
+    #     for index, line in enumerate(lines):
+    #         if line == '       <material name="white">\n':
+    #             lines[index+1] = '        <color rgba="{} {} {} {}"/>\n'.format(*plane_color)
+    #     myplane = open(self.plane_path, 'w')
+    #     lines = myplane.writelines(lines)
+    #     myplane.close()
 
-        parser_command = 'xacro ' + self.xacro_file + ' > ' + self.urdf_file
-        os.system(parser_command)
+    #     parser_command = 'xacro ' + self.xacro_file + ' > ' + self.urdf_file
+    #     os.system(parser_command)
         
-        return
+    #     return
     
-    def _load_ground_vehicle(self):
-        """ Loads the vehicle model at every reset """
-        #### Desired GV init position ##############################
-        self.gv_pos = [0.2,0.2,0]
-        #### Desired velocity ######################################
-        # self.gv_velocity = 18 - 6*np.random.rand()
-        self.gv_velocity = 1
-        #### Max force to reach the desired velocity ###############
-        self.gv_force_limit = 600
-        self.vehicleId = p.loadURDF(self.urdf_file, basePosition = self.gv_pos)
+    # def _load_ground_vehicle(self):
+    #     """ Loads the vehicle model at every reset """
+    #     #### Desired GV init position ##############################
+    #     self.gv_pos = [0.2,0.2,0]
+    #     #### Desired velocity ######################################
+    #     # self.gv_velocity = 18 - 6*np.random.rand()
+    #     self.gv_velocity = 1
+    #     #### Max force to reach the desired velocity ###############
+    #     self.gv_force_limit = 600
+    #     self.vehicleId = p.loadURDF(self.urdf_file, basePosition = self.gv_pos)
 
 
 
 
-        # p.changeVisualShape(sphere,linkIndex,rgbaColor=[red,green,blue,1])
+    #     # p.changeVisualShape(sphere,linkIndex,rgbaColor=[red,green,blue,1])
 
 
-        #### The wheel bar joints ##################################
-        self.gv_joint = [1, 4]
-        #### The helipad circle link id  ###########################
-        self.gv_circleLink = 9
+    #     #### The wheel bar joints ##################################
+    #     self.gv_joint = [1, 4]
+    #     #### The helipad circle link id  ###########################
+    #     self.gv_circleLink = 9
 
-        p.setJointMotorControl2(bodyUniqueId=self.vehicleId, 
-                                jointIndex=self.gv_joint[0], 
-                                controlMode=p.VELOCITY_CONTROL, 
-                                targetVelocity=self.gv_velocity, 
-                                force=self.gv_force_limit)
+    #     p.setJointMotorControl2(bodyUniqueId=self.vehicleId, 
+    #                             jointIndex=self.gv_joint[0], 
+    #                             controlMode=p.VELOCITY_CONTROL, 
+    #                             targetVelocity=self.gv_velocity, 
+    #                             force=self.gv_force_limit)
         
-        p.setJointMotorControl2(bodyUniqueId=self.vehicleId, 
-                                jointIndex=self.gv_joint[1], 
-                                controlMode=p.VELOCITY_CONTROL, 
-                                targetVelocity=self.gv_velocity, 
-                                force=self.gv_force_limit)
+    #     p.setJointMotorControl2(bodyUniqueId=self.vehicleId, 
+    #                             jointIndex=self.gv_joint[1], 
+    #                             controlMode=p.VELOCITY_CONTROL, 
+    #                             targetVelocity=self.gv_velocity, 
+    #                             force=self.gv_force_limit)
 
-        return
+    #     return
     
     def _get_vehicle_position(self):
         """ Returns the helipad center position and orientation """
@@ -360,8 +360,8 @@ class BaseAviary(gym.Env):
         self._startVideoRecording()
         ### reset position ###
         self._resetPosition()
-        ### Reloads the ground vehicle ###
-        self._load_ground_vehicle()
+        # ### Reloads the ground vehicle ###
+        # self._load_ground_vehicle()
         #### Return the initial observation ########################
         return self._computeObs()
 
@@ -561,6 +561,41 @@ class BaseAviary(gym.Env):
         in the `reset()` function.
 
         """
+        #### Initialize the GV parameters ##########################
+        #### Path to GV URDF file ##################################
+        self.xacro_file = "/home/user/landing/landing_rl/g_vehicle/car_v2.urdf"
+        #### Path to the file to be parsed #########################
+        self.urdf_file = "/home/user/landing/landing_rl/g_vehicle/parsed.urdf"
+        #### Path to the plane URDF file## #########################
+        self.plane_path = '/home/user/miniconda3/lib/python3.7/site-packages/pybullet_data/plane.urdf'
+        base_color = ['0.0', '1.0', '1.0', '1.0']         # ['0.0', '1.0', '0.0', '1.0']
+        circle_color = ['0.0', '0.3', '0.0', '1.0']       # ['1.0', '0.0', '0.0', '1.0']
+        plane_color = ['1.0', '1.0', '1.0', '1.0']        # ['1.0', '1.0', '1.0', '1.0']
+        mycar = open(self.xacro_file, 'r')
+        lines = mycar.readlines()
+        mycar.close()
+        for index, line in enumerate(lines):
+            if line == '  <material name="base_color">\n':
+                lines[index+1] = '    <color rgba="{} {} {} {}"/>\n'.format(*base_color)
+            if line == '  <material name="circle_color">\n':
+                lines[index+1] = '    <color rgba="{} {} {} {}"/>\n'.format(*circle_color)
+        mycar = open(self.xacro_file, 'w')
+        mycar.writelines(lines)
+        mycar.close()
+        myplane = open(self.plane_path, 'r')
+        lines = myplane.readlines()
+        myplane.close()
+        for index, line in enumerate(lines):
+            if line == '       <material name="white">\n':
+                lines[index+1] = '        <color rgba="{} {} {} {}"/>\n'.format(*plane_color)
+        myplane = open(self.plane_path, 'w')
+        lines = myplane.writelines(lines)
+        myplane.close()
+        parser_command = 'xacro ' + self.xacro_file + ' > ' + self.urdf_file
+        os.system(parser_command)
+
+
+
         self.INIT_XYZS_random = (-3+(6*np.random.rand(*self.INIT_XYZS.shape))) + self.INIT_XYZS
         # self.INIT_XYZS_random = self.INIT_XYZS
         #### Initialize/reset counters and zero-valued variables ###
@@ -621,6 +656,30 @@ class BaseAviary(gym.Env):
         if self.OBSTACLES:
             self._addObstacles()
         self.ctrl.reset()
+
+        """ Loads the vehicle model at every reset """
+        #### Desired GV init position ##############################
+        self.gv_pos = [0.2,0.2,0]
+        #### Desired velocity ######################################
+        self.gv_velocity = 18 - 6*np.random.rand()
+        # self.gv_velocity = 1
+        #### Max force to reach the desired velocity ###############
+        self.gv_force_limit = 600
+        self.vehicleId = p.loadURDF(self.urdf_file, basePosition = self.gv_pos)
+        #### The wheel bar joints ##################################
+        self.gv_joint = [1, 4]
+        #### The helipad circle link id  ###########################
+        self.gv_circleLink = 9
+        p.setJointMotorControl2(bodyUniqueId=self.vehicleId, 
+                                jointIndex=self.gv_joint[0], 
+                                controlMode=p.VELOCITY_CONTROL, 
+                                targetVelocity=self.gv_velocity, 
+                                force=self.gv_force_limit)
+        p.setJointMotorControl2(bodyUniqueId=self.vehicleId, 
+                                jointIndex=self.gv_joint[1], 
+                                controlMode=p.VELOCITY_CONTROL, 
+                                targetVelocity=self.gv_velocity, 
+                                force=self.gv_force_limit)
     
     ################################################################################
 
