@@ -280,9 +280,9 @@ class BaseAviary(gym.Env):
         self.gv_force_limit = 600
 
         #### Path to the actual urdf file ##########################
-        self.xacro_file = "/home/user/landing/landing_rl/g_vehicle/car_v2.urdf"
+        self.xacro_file = "/home/user/landing/g_vehicle/car_v2.urdf"
         #### Path for the to be parsed file ########################
-        self.urdf_file = "/home/user/landing/landing_rl/g_vehicle/parsed.urdf"
+        self.urdf_file = "/home/user/landing/g_vehicle/parsed.urdf"
 
         parser_command = 'xacro ' + self.xacro_file + ' > ' + self.urdf_file
         os.system(parser_command)
@@ -293,18 +293,20 @@ class BaseAviary(gym.Env):
     
     def _load_ground_vehicle(self):
         """ Loads the vehicle model at every reset """
-        self.vehicleId = p.loadURDF(self.urdf_file, basePosition = [0.0,0.0,0])
+        self.vehicleId = p.loadURDF(self.urdf_file, basePosition = [0.0,0.0,0], physicsClientId=self.CLIENT)
         p.setJointMotorControl2(bodyUniqueId=self.vehicleId, 
                                 jointIndex=self.gv_joint[0], 
                                 controlMode=p.VELOCITY_CONTROL, 
                                 targetVelocity=self.gv_velocity, 
-                                force=self.gv_force_limit)
+                                force=self.gv_force_limit,
+                                physicsClientId=self.CLIENT)
         
         p.setJointMotorControl2(bodyUniqueId=self.vehicleId, 
                                 jointIndex=self.gv_joint[1], 
                                 controlMode=p.VELOCITY_CONTROL, 
                                 targetVelocity=self.gv_velocity, 
-                                force=self.gv_force_limit)
+                                force=self.gv_force_limit,
+                                physicsClientId=self.CLIENT)
 
         return
     
@@ -396,55 +398,55 @@ class BaseAviary(gym.Env):
             # seg = ((seg-np.min(seg)) * 255 / (np.max(seg)-np.min(seg))).astype('uint8')
             # (Image.fromarray(np.reshape(seg, (h, w)))).save(self.IMG_PATH+"frame_"+str(self.FRAME_NUM)+".png")
             self.FRAME_NUM += 1
-        if self.RECORD_CHASE and not self.GUI and self.step_counter%self.CAPTURE_FREQ == 0:
-            nth_drone = 0
-            gv_pos = np.array(self._get_vehicle_position()[0])
-            #### Set target point, camera view and projection matrices #
-            target = gv_pos + np.array([0.0,0,0])#np.dot(rot_mat, np.array([0, 0, -1000])) + np.array(self.pos[nth_drone, :]
-            DRONE_CAM_VIEW = p.computeViewMatrix(cameraEyePosition=self.pos[nth_drone, :] + np.array([0, 0, 0.75]) +np.array([0, 0, self.L]),
-                                                cameraTargetPosition=target,
-                                                cameraUpVector=[1, 0, 0],
-                                                physicsClientId=self.CLIENT
-                                                )
-            DRONE_CAM_PRO =  p.computeProjectionMatrixFOV(fov=60.0,
-                                                        aspect=1.0,
-                                                        nearVal=self.L,
-                                                        farVal=1000.0
-                                                        )
-            #SEG_FLAG = p.ER_SEGMENTATION_MASK_OBJECT_AND_LINKINDEX if segmentation else p.ER_NO_SEGMENTATION_MASK
-            SEG_FLAG = True
-            [w, h, rgb, dep, seg] = p.getCameraImage(width=882,
-                                                    height=836,
-                                                    shadow=1,
-                                                    viewMatrix=DRONE_CAM_VIEW,
-                                                    projectionMatrix=DRONE_CAM_PRO,
-                                                    renderer=p.ER_TINY_RENDERER,
-                                                    flags=p.ER_SEGMENTATION_MASK_OBJECT_AND_LINKINDEX,
-                                                    physicsClientId=self.CLIENT
-                                                    )
-            (Image.fromarray(np.reshape(rgb, (h, w, 4)), 'RGBA')).save(self.IMG_PATH_CHASE+"frame_"+str(self.FRAME_NUM)+".png")
-            #create matplotlib and record frames from that
-            fig = plt.figure()
-            ax = plt.axes(projection ='3d')
-            uav_pos = self.pos[0,:]
-            gv_pos = self.get_vehicle_position()[0]
-            self.gv_poss_list.append(gv_pos)
-            self.uav_poss_list.append(uav_pos.copy())
-            uav_poss = np.array(self.uav_poss_list)
-            gv_poss = np.array(self.gv_poss_list)
-            ax.plot3D(uav_poss[:,0], uav_poss[:,1], uav_poss[:,2], 'green', label = "UAS trajectory",linewidth=4.0)
-            ax.plot3D(gv_poss[:,0], gv_poss[:,1], gv_poss[:,2], 'red', label = "Landing platform trajectory",linewidth=4.0, linestyle = '--')
-            ax.set_xlabel('x-position (m)', labelpad=8)
-            # naming the y axis
-            ax.set_ylabel('y-position (m)', labelpad=8)
-            ax.set_zlabel('z-position (m)', labelpad=8)
-            ax.legend(fontsize = 14, loc='upper left')
-            ax.axes.set_xlim3d(left=-1, right=15) 
-            ax.axes.set_ylim3d(bottom=-4, top=4) 
-            ax.axes.set_zlim3d(bottom=-0, top=13)
-            graph_path = self.IMG_PATH_GRAPH+"frame_"+str(self.FRAME_NUM)+".png"
-            plt.savefig(graph_path, bbox_inches='tight', dpi=200)
-            plt.close()
+        # if self.RECORD_CHASE and not self.GUI and self.step_counter%self.CAPTURE_FREQ == 0:
+        #     nth_drone = 0
+        #     gv_pos = np.array(self._get_vehicle_position()[0])
+        #     #### Set target point, camera view and projection matrices #
+        #     target = gv_pos + np.array([0.0,0,0])#np.dot(rot_mat, np.array([0, 0, -1000])) + np.array(self.pos[nth_drone, :]
+        #     DRONE_CAM_VIEW = p.computeViewMatrix(cameraEyePosition=self.pos[nth_drone, :] + np.array([0, 0, 0.75]) +np.array([0, 0, self.L]),
+        #                                         cameraTargetPosition=target,
+        #                                         cameraUpVector=[1, 0, 0],
+        #                                         physicsClientId=self.CLIENT
+        #                                         )
+        #     DRONE_CAM_PRO =  p.computeProjectionMatrixFOV(fov=60.0,
+        #                                                 aspect=1.0,
+        #                                                 nearVal=self.L,
+        #                                                 farVal=1000.0
+        #                                                 )
+        #     #SEG_FLAG = p.ER_SEGMENTATION_MASK_OBJECT_AND_LINKINDEX if segmentation else p.ER_NO_SEGMENTATION_MASK
+        #     SEG_FLAG = True
+        #     [w, h, rgb, dep, seg] = p.getCameraImage(width=882,
+        #                                             height=836,
+        #                                             shadow=1,
+        #                                             viewMatrix=DRONE_CAM_VIEW,
+        #                                             projectionMatrix=DRONE_CAM_PRO,
+        #                                             renderer=p.ER_TINY_RENDERER,
+        #                                             flags=p.ER_SEGMENTATION_MASK_OBJECT_AND_LINKINDEX,
+        #                                             physicsClientId=self.CLIENT
+        #                                             )
+        #     (Image.fromarray(np.reshape(rgb, (h, w, 4)), 'RGBA')).save(self.IMG_PATH_CHASE+"frame_"+str(self.FRAME_NUM)+".png")
+        #     #create matplotlib and record frames from that
+        #     fig = plt.figure()
+        #     ax = plt.axes(projection ='3d')
+        #     uav_pos = self.pos[0,:]
+        #     gv_pos = self.get_vehicle_position()[0]
+        #     self.gv_poss_list.append(gv_pos)
+        #     self.uav_poss_list.append(uav_pos.copy())
+        #     uav_poss = np.array(self.uav_poss_list)
+        #     gv_poss = np.array(self.gv_poss_list)
+        #     ax.plot3D(uav_poss[:,0], uav_poss[:,1], uav_poss[:,2], 'green', label = "UAS trajectory",linewidth=4.0)
+        #     ax.plot3D(gv_poss[:,0], gv_poss[:,1], gv_poss[:,2], 'red', label = "Landing platform trajectory",linewidth=4.0, linestyle = '--')
+        #     ax.set_xlabel('x-position (m)', labelpad=8)
+        #     # naming the y axis
+        #     ax.set_ylabel('y-position (m)', labelpad=8)
+        #     ax.set_zlabel('z-position (m)', labelpad=8)
+        #     ax.legend(fontsize = 14, loc='upper left')
+        #     ax.axes.set_xlim3d(left=-1, right=15) 
+        #     ax.axes.set_ylim3d(bottom=-4, top=4) 
+        #     ax.axes.set_zlim3d(bottom=-0, top=13)
+        #     graph_path = self.IMG_PATH_GRAPH+"frame_"+str(self.FRAME_NUM)+".png"
+        #     plt.savefig(graph_path, bbox_inches='tight', dpi=200)
+        #     plt.close()
         #### Read the GUI's input parameters #######################
         if self.GUI and self.USER_DEBUG:
             current_input_switch = p.readUserDebugParameter(self.INPUT_SWITCH, physicsClientId=self.CLIENT)
@@ -528,6 +530,31 @@ class BaseAviary(gym.Env):
             Unused.
 
         """
+        nth_drone = 0
+        gv_pos = np.array(self._get_vehicle_position()[0])
+        #### Set target point, camera view and projection matrices #
+        target = gv_pos + np.array([0.0,0,0])#np.dot(rot_mat, np.array([0, 0, -1000])) + np.array(self.pos[nth_drone, :]
+        DRONE_CAM_VIEW = p.computeViewMatrix(cameraEyePosition=self.pos[nth_drone, :] + np.array([0, 0, 0.75]) +np.array([0, 0, self.L]),
+                                            cameraTargetPosition=target,
+                                            cameraUpVector=[1, 0, 0],
+                                            physicsClientId=self.CLIENT
+                                            )
+        DRONE_CAM_PRO =  p.computeProjectionMatrixFOV(fov=60.0,
+                                                    aspect=1.0,
+                                                    nearVal=self.L,
+                                                    farVal=1000.0
+                                                    )
+        #SEG_FLAG = p.ER_SEGMENTATION_MASK_OBJECT_AND_LINKINDEX if segmentation else p.ER_NO_SEGMENTATION_MASK
+        SEG_FLAG = True
+        [w, h, rgb, dep, seg] = p.getCameraImage(width=882,
+                                                height=836,
+                                                shadow=1,
+                                                viewMatrix=DRONE_CAM_VIEW,
+                                                projectionMatrix=DRONE_CAM_PRO,
+                                                renderer=p.ER_TINY_RENDERER,
+                                                flags=p.ER_SEGMENTATION_MASK_OBJECT_AND_LINKINDEX,
+                                                physicsClientId=self.CLIENT
+                                                )
         if self.first_render_call and not self.GUI:
             print("[WARNING] BaseAviary.render() is implemented as text-only, re-initialize the environment using Aviary(gui=True) to use PyBullet's graphical interface")
             self.first_render_call = False
@@ -540,6 +567,7 @@ class BaseAviary(gym.Env):
                   "——— velocity {:+06.2f}, {:+06.2f}, {:+06.2f}".format(self.vel[i, 0], self.vel[i, 1], self.vel[i, 2]),
                   "——— roll {:+06.2f}, pitch {:+06.2f}, yaw {:+06.2f}".format(self.rpy[i, 0]*self.RAD2DEG, self.rpy[i, 1]*self.RAD2DEG, self.rpy[i, 2]*self.RAD2DEG),
                   "——— angular velocity {:+06.4f}, {:+06.4f}, {:+06.4f} ——— ".format(self.ang_v[i, 0], self.ang_v[i, 1], self.ang_v[i, 2]))
+        return Image.fromarray(np.reshape(rgb, (h, w, 4)), 'RGBA')
     
     ################################################################################
 
@@ -586,9 +614,9 @@ class BaseAviary(gym.Env):
 
         """
         #random initial position
-        self.INIT_XYZS_random = (-3+(6*np.random.rand(*self.INIT_XYZS.shape))) + self.INIT_XYZS
+        #self.INIT_XYZS_random = (-3+(6*np.random.rand(*self.INIT_XYZS.shape))) + self.INIT_XYZS
         #random inital velocity
-        #self.INIT_XYZS_random = self.INIT_XYZS -4
+        self.INIT_XYZS_random = self.INIT_XYZS #-4
         #### Initialize/reset counters and zero-valued variables ###
         self.RESET_TIME = time.time()
         self.step_counter = 0

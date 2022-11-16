@@ -18,7 +18,7 @@ class LandingAviary(BaseSingleAgentAviary):
                  freq: int= 240,
                  aggregate_phy_steps: int=10,
                  gui=False,
-                 record=True, 
+                 record=False, 
                  obs: ObservationType=ObservationType.RGB,
                  act: ActionType=ActionType.VEL,
                  ):
