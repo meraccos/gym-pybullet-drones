@@ -310,67 +310,64 @@ class BaseAviary(gym.Env):
     #                             targetVelocity=self.gv_velocity, 
     #                             force=self.gv_force_limit,
     #                             physicsClientId=self.CLIENT)
-
-        return
+    # 
+    #     return
     
     def _get_vehicle_position(self):
-        """ Returns the helipad center position and orientation """
-        return p.getLinkState(self.vehicleId, self.gv_circleLink, physicsClientId=self.CLIENT)[0:2]
-
-    def get_vehicle_position(self):
         """ Returns the helipad center position and orientation """
         return p.getLinkState(self.vehicleId, self.gv_circleLink, physicsClientId=self.CLIENT)[0:2]
 
     def _get_vehicle_velocity(self):
         """ Returns the linear and angular velocity of the vehicle """
         return p.getBaseVelocity(self.vehicleId,physicsClientId=self.CLIENT)
-
-    def get_vehicle_velocity(self):
-        """ Returns the linear and angular velocity of the vehicle """
-        return p.getBaseVelocity(self.vehicleId,physicsClientId=self.CLIENT)
     
     def _randomizer(self, init_seed = 1):
         #random.seed(init_seed)
         #self.AGGR_PHY_STEPS = self.AGGR_PHY_STEPS_original + random.randint(0,6) - 3
+
         #### Initialize the GV parameters ##########################
         #### Path to GV URDF file ##################################
         self.xacro_file = "/home/user/landing/g_vehicle/car_v2.urdf"
         #### Path to the file to be parsed #########################
         self.urdf_file = "/home/user/landing/g_vehicle/parsed.urdf"
-        #### Path to the plane URDF file## #########################
+        #### Path to the plane URDF file ###########################
         self.plane_path = '/home/user/miniconda3/lib/python3.7/site-packages/pybullet_data/plane.urdf'
+        #### Path to the dtd file ###########################
+        dtd_path = '/root/gym-pybullet-drones/gym_pybullet_drones/envs/single_agent_rl/dtd'
+
         base_color =  ['0.0', '1.0', '0.0', '1.0']
         circle_color =  ['1.0', '0.0', '0.0', '1.0']
         plane_color =  ['1.0', '1.0', '1.0', '1.0']
-        mycar = open(self.xacro_file, 'r')
-        lines = mycar.readlines()
-        mycar.close()
+        grid_scale = ['5', '5']
+        random_texture = True
+
+        with open(self.xacro_file, 'r') as file:
+            lines = file.readlines()
         for index, line in enumerate(lines):
             if line == '  <material name="base_color">\n':
                 lines[index+1] = '    <color rgba="{} {} {} {}"/>\n'.format(*base_color)
             if line == '  <material name="circle_color">\n':
                 lines[index+1] = '    <color rgba="{} {} {} {}"/>\n'.format(*circle_color)
-        mycar = open(self.xacro_file, 'w')
-        mycar.writelines(lines)
-        mycar.close()
-        myplane = open(self.plane_path, 'r')
-        lines = myplane.readlines()
-        myplane.close()
+        with open(self.xacro_file, 'w') as file:
+            file.writelines(lines)
+        with open(self.plane_path, 'r') as file:
+            lines = file.readlines()
         for index, line in enumerate(lines):
             if line == '       <material name="white">\n':
                 lines[index+1] = '        <color rgba="{} {} {} {}"/>\n'.format(*plane_color)
-        myplane = open(self.plane_path, 'w')
-        lines = myplane.writelines(lines)
-        myplane.close()
+            if line == '      <origin rpy="0 0 0" xyz="0 0 0"/>\n' and lines[index+1]== '      <geometry>\n':
+                lines[index+2] = '                      <mesh filename="plane100.obj" scale="{} {} 1"/>\n'.format(*grid_scale)
+        with open(self.plane_path, 'w') as file:
+            lines = file.writelines(lines)
         parser_command = 'xacro ' + self.xacro_file + ' > ' + self.urdf_file
         os.system(parser_command)
 
-        dtd_path = '/root/gym-pybullet-drones/gym_pybullet_drones/envs/single_agent_rl/dtd'
-        texture_paths = glob.glob(os.path.join(dtd_path, '**', '*.jpg'), recursive=True)
-        random_texture_path = texture_paths[random.randint(0, len(texture_paths) - 1)]
-        #random_texture_path ='/root/gym-pybullet-drones/gym_pybullet_drones/envs/single_agent_rl/dtd/asp_test.jpeg' 
-        textureId = p.loadTexture(random_texture_path, physicsClientId=self.CLIENT)
-        #p.changeVisualShape(self.PLANE_ID, -1, textureUniqueId=textureId, physicsClientId=self.CLIENT)
+        if random_texture:
+            texture_paths = glob.glob(os.path.join(dtd_path, '**', '*.jpg'), recursive=True)
+            random_texture_path = texture_paths[random.randint(0, len(texture_paths) - 1)]
+            #random_texture_path ='/root/gym-pybullet-drones/gym_pybullet_drones/envs/single_agent_rl/dtd/asp_test.jpeg' 
+            textureId = p.loadTexture(random_texture_path, physicsClientId=self.CLIENT)
+            p.changeVisualShape(self.PLANE_ID, -1, textureUniqueId=textureId, physicsClientId=self.CLIENT)
 
         """ Loads the vehicle model at every reset """
         #### Desired GV init position ##############################
@@ -865,34 +862,6 @@ class BaseAviary(gym.Env):
         #im.save("your_file_2.png")
         #print('calling correct image?')
         return rgb, dep, seg
-
-    ################################################################################
-
-    def quaternion_multiply(self, Q0, Q1):
-        ''' Returns quaternion multiplication of Q0 and Q1'''
-        # Extract the values from Q0
-        w0 = Q0[0]
-        x0 = Q0[1]
-        y0 = Q0[2]
-        z0 = Q0[3]
-        
-        # Extract the values from Q1
-        w1 = Q1[0]
-        x1 = Q1[1]
-        y1 = Q1[2]
-        z1 = Q1[3]
-        
-        # Computes the product of the two quaternions, term by term
-        Q0Q1_w = w0 * w1 - x0 * x1 - y0 * y1 - z0 * z1
-        Q0Q1_x = w0 * x1 + x0 * w1 + y0 * z1 - z0 * y1
-        Q0Q1_y = w0 * y1 - x0 * z1 + y0 * w1 + z0 * x1
-        Q0Q1_z = w0 * z1 + x0 * y1 - y0 * x1 + z0 * w1
-        
-        # Create a 4 element array containing the final quaternion
-        final_quaternion = np.array([Q0Q1_w, Q0Q1_x, Q0Q1_y, Q0Q1_z])
-        
-        # Return a 4 element array containing the final quaternion (q02,q12,q22,q32) 
-        return final_quaternion
 
     ################################################################################
 

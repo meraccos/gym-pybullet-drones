@@ -221,7 +221,10 @@ class LandingAviary(BaseSingleAgentAviary):
         return {"landing": Landing_flag,
                 "episode end flag": episode_end,
                 "x error": x_pos_error,
-                "y error": y_pos_error} #### Calculated by the Deep Thought supercomputer in 7.5M years
+                "y error": y_pos_error,
+                # "drone_state": [self.pos[0], self.rpy[0], self.quat[0]],
+                # "GV_state": UGV_pos
+                } #### Calculated by the Deep Thought supercomputer in 7.5M years
 
     def _resetPosition(self):
         PYB_CLIENT = self.getPyBulletClient()
