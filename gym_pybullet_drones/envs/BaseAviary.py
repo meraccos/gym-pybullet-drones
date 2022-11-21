@@ -632,7 +632,7 @@ class BaseAviary(gym.Env):
         dtd_path = '/root/gym-pybullet-drones/gym_pybullet_drones/envs/single_agent_rl/dtd'
         texture_paths = glob.glob(os.path.join(dtd_path, '**', '*.jpg'), recursive=True)
         random_texture_path = texture_paths[random.randint(0, len(texture_paths) - 1)]
-        random_texture_path ='/root/gym-pybullet-drones/gym_pybullet_drones/envs/single_agent_rl/dtd/asp_test.jpeg' 
+        # random_texture_path ='/root/gym-pybullet-drones/gym_pybullet_drones/envs/single_agent_rl/dtd/asp_test.jpeg' 
         textureId = p.loadTexture(random_texture_path)
         p.changeVisualShape(self.PLANE_ID, -1, textureUniqueId=textureId)
 
