@@ -78,7 +78,8 @@ class LandingAviary(BaseSingleAgentAviary):
         DRONE_CAM_PRO =  p.computeProjectionMatrixFOV(fov=60.0,
                                                       aspect=1.0,
                                                       nearVal=self.L,
-                                                      farVal=1000.0
+                                                      farVal=1000.0,
+                                                      physicsClientId=self.CLIENT
                                                       )
         #SEG_FLAG = p.ER_SEGMENTATION_MASK_OBJECT_AND_LINKINDEX if segmentation else p.ER_NO_SEGMENTATION_MASK
         SEG_FLAG = True
@@ -152,10 +153,10 @@ class LandingAviary(BaseSingleAgentAviary):
         #if combined_reward < 0:
         #    print(drone_velocity)
         #    exit()
-        if drone_position[2] >= 0.275 and p.getContactPoints(bodyA=1) != ():
+        if drone_position[2] >= 0.275 and p.getContactPoints(bodyA=1, physicsClientId=self.CLIENT) != ():
             print('landed!')
             combined_reward =  120 + combined_reward
-        elif drone_position[2] < 0.275 and p.getContactPoints(bodyA=1) != ():
+        elif drone_position[2] < 0.275 and p.getContactPoints(bodyA=1, physicsClientId=self.CLIENT) != ():
             print('crashed!')
             combined_reward = -1 #normalized_distance_xy * 10 #0#5*distance_xy + combined_reward
         else:
@@ -184,7 +185,7 @@ class LandingAviary(BaseSingleAgentAviary):
             Whether the current episode is done.
 
         """
-        if p.getContactPoints(bodyA=1) != ():
+        if p.getContactPoints(bodyA=1, physicsClientId=self.CLIENT) != ():
             return True
         if self.step_counter/self.SIM_FREQ > self.EPISODE_LEN_SEC:
             return True
@@ -208,12 +209,12 @@ class LandingAviary(BaseSingleAgentAviary):
         UGV_pos = np.array(self._get_vehicle_position()[0])
         x_pos_error = np.linalg.norm(drone_position[0]-UGV_pos[0])
         y_pos_error = np.linalg.norm(drone_position[1]-UGV_pos[1])
-        if drone_position[2] >= 0.275 and p.getContactPoints(bodyA=1) != ():
+        if drone_position[2] >= 0.275 and p.getContactPoints(bodyA=1, physicsClientId=self.CLIENT) != ():
             Landing_flag = True
         else:
             Landing_flag = False
         #episode end returns true when landing ends up on the ground i.e. the episode should truely finish
-        if p.getContactPoints(bodyA=1) != ():
+        if p.getContactPoints(bodyA=1, physicsClientId=self.CLIENT) != ():
             episode_end = True
         else:
             episode_end = False

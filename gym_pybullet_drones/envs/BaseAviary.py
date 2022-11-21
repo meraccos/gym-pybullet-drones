@@ -16,6 +16,8 @@ from PIL import Image
 from scipy.spatial.transform import Rotation
 import matplotlib
 import matplotlib.pyplot as plt
+import glob
+import random
 class DroneModel(Enum):
     """Drone models enumeration class."""
 
@@ -111,7 +113,8 @@ class BaseAviary(gym.Env):
         self.DEG2RAD = np.pi/180
         self.SIM_FREQ = freq
         self.TIMESTEP = 1./self.SIM_FREQ
-        self.AGGR_PHY_STEPS = aggregate_phy_steps
+        self.AGGR_PHY_STEPS_original = aggregate_phy_steps
+        self.AGGR_PHY_STEPS = self.AGGR_PHY_STEPS_original
         #### Parameters ############################################
         self.NUM_DRONES = num_drones
         self.NEIGHBOURHOOD_RADIUS = neighbourhood_radius
@@ -261,46 +264,133 @@ class BaseAviary(gym.Env):
         #### Start video recording #################################
         self._startVideoRecording()
         #### Load the ground vehicle ###############################
-        self._initialize_ground_vehicle()
+        #self._initialize_ground_vehicle()
         ##initialise lists for positions
         if self.RECORD_CHASE:
             self.gv_poss_list = []
             self.uav_poss_list = []
     ################################################################################
 
-    def _initialize_ground_vehicle(self):
-        """ Initializes the vehicle model """
+    # def _initialize_ground_vehicle(self):
+    #     """ Initializes the vehicle model """
+    #     #### Desired velocity ######################################
+    #     self.gv_velocity = 18 - 6*np.random.rand()
+    #     #### The wheel bar joints ##################################
+    #     self.gv_joint = [1, 4]
+    #     #### The helipad circle link id  ###########################
+    #     self.gv_circleLink = 9
+    #     #### Max force to reach the desired velocity ###############
+    #     self.gv_force_limit = 600
+
+    #     #### Path to the actual urdf file ##########################
+    #     self.xacro_file = "/home/user/landing/g_vehicle/car_v2.urdf"
+    #     #### Path for the to be parsed file ########################
+    #     self.urdf_file = "/home/user/landing/g_vehicle/parsed.urdf"
+
+    #     parser_command = 'xacro ' + self.xacro_file + ' > ' + self.urdf_file
+    #     os.system(parser_command)
+
+    #     self._load_ground_vehicle()
+        
+    #     return
+    
+    # def _load_ground_vehicle(self):
+    #     """ Loads the vehicle model at every reset """
+    #     self.vehicleId = p.loadURDF(self.urdf_file, basePosition = [0.0,0.0,0], physicsClientId=self.CLIENT)
+    #     p.setJointMotorControl2(bodyUniqueId=self.vehicleId, 
+    #                             jointIndex=self.gv_joint[0], 
+    #                             controlMode=p.VELOCITY_CONTROL, 
+    #                             targetVelocity=self.gv_velocity, 
+    #                             force=self.gv_force_limit,
+    #                             physicsClientId=self.CLIENT)
+        
+    #     p.setJointMotorControl2(bodyUniqueId=self.vehicleId, 
+    #                             jointIndex=self.gv_joint[1], 
+    #                             controlMode=p.VELOCITY_CONTROL, 
+    #                             targetVelocity=self.gv_velocity, 
+    #                             force=self.gv_force_limit,
+    #                             physicsClientId=self.CLIENT)
+
+        return
+    
+    def _get_vehicle_position(self):
+        """ Returns the helipad center position and orientation """
+        return p.getLinkState(self.vehicleId, self.gv_circleLink, physicsClientId=self.CLIENT)[0:2]
+
+    def get_vehicle_position(self):
+        """ Returns the helipad center position and orientation """
+        return p.getLinkState(self.vehicleId, self.gv_circleLink, physicsClientId=self.CLIENT)[0:2]
+
+    def _get_vehicle_velocity(self):
+        """ Returns the linear and angular velocity of the vehicle """
+        return p.getBaseVelocity(self.vehicleId,physicsClientId=self.CLIENT)
+
+    def get_vehicle_velocity(self):
+        """ Returns the linear and angular velocity of the vehicle """
+        return p.getBaseVelocity(self.vehicleId,physicsClientId=self.CLIENT)
+    
+    def _randomizer(self, init_seed = 1):
+        #random.seed(init_seed)
+        #self.AGGR_PHY_STEPS = self.AGGR_PHY_STEPS_original + random.randint(0,6) - 3
+        #### Initialize the GV parameters ##########################
+        #### Path to GV URDF file ##################################
+        self.xacro_file = "/home/user/landing/g_vehicle/car_v2.urdf"
+        #### Path to the file to be parsed #########################
+        self.urdf_file = "/home/user/landing/g_vehicle/parsed.urdf"
+        #### Path to the plane URDF file## #########################
+        self.plane_path = '/home/user/miniconda3/lib/python3.7/site-packages/pybullet_data/plane.urdf'
+        base_color =  ['0.0', '1.0', '0.0', '1.0']
+        circle_color =  ['1.0', '0.0', '0.0', '1.0']
+        plane_color =  ['1.0', '1.0', '1.0', '1.0']
+        mycar = open(self.xacro_file, 'r')
+        lines = mycar.readlines()
+        mycar.close()
+        for index, line in enumerate(lines):
+            if line == '  <material name="base_color">\n':
+                lines[index+1] = '    <color rgba="{} {} {} {}"/>\n'.format(*base_color)
+            if line == '  <material name="circle_color">\n':
+                lines[index+1] = '    <color rgba="{} {} {} {}"/>\n'.format(*circle_color)
+        mycar = open(self.xacro_file, 'w')
+        mycar.writelines(lines)
+        mycar.close()
+        myplane = open(self.plane_path, 'r')
+        lines = myplane.readlines()
+        myplane.close()
+        for index, line in enumerate(lines):
+            if line == '       <material name="white">\n':
+                lines[index+1] = '        <color rgba="{} {} {} {}"/>\n'.format(*plane_color)
+        myplane = open(self.plane_path, 'w')
+        lines = myplane.writelines(lines)
+        myplane.close()
+        parser_command = 'xacro ' + self.xacro_file + ' > ' + self.urdf_file
+        os.system(parser_command)
+
+        dtd_path = '/root/gym-pybullet-drones/gym_pybullet_drones/envs/single_agent_rl/dtd'
+        texture_paths = glob.glob(os.path.join(dtd_path, '**', '*.jpg'), recursive=True)
+        random_texture_path = texture_paths[random.randint(0, len(texture_paths) - 1)]
+        #random_texture_path ='/root/gym-pybullet-drones/gym_pybullet_drones/envs/single_agent_rl/dtd/asp_test.jpeg' 
+        textureId = p.loadTexture(random_texture_path, physicsClientId=self.CLIENT)
+        #p.changeVisualShape(self.PLANE_ID, -1, textureUniqueId=textureId, physicsClientId=self.CLIENT)
+
+        """ Loads the vehicle model at every reset """
+        #### Desired GV init position ##############################
+        self.gv_pos = [0.2,0.2,0]
         #### Desired velocity ######################################
         self.gv_velocity = 18 - 6*np.random.rand()
+        # self.gv_velocity = 1
+        #### Max force to reach the desired velocity ###############
+        self.gv_force_limit = 600
         #### The wheel bar joints ##################################
         self.gv_joint = [1, 4]
         #### The helipad circle link id  ###########################
         self.gv_circleLink = 9
-        #### Max force to reach the desired velocity ###############
-        self.gv_force_limit = 600
-
-        #### Path to the actual urdf file ##########################
-        self.xacro_file = "/home/user/landing/g_vehicle/car_v2.urdf"
-        #### Path for the to be parsed file ########################
-        self.urdf_file = "/home/user/landing/g_vehicle/parsed.urdf"
-
-        parser_command = 'xacro ' + self.xacro_file + ' > ' + self.urdf_file
-        os.system(parser_command)
-
-        self._load_ground_vehicle()
-        
-        return
-    
-    def _load_ground_vehicle(self):
-        """ Loads the vehicle model at every reset """
-        self.vehicleId = p.loadURDF(self.urdf_file, basePosition = [0.0,0.0,0], physicsClientId=self.CLIENT)
+        self.vehicleId = p.loadURDF(self.urdf_file, basePosition = self.gv_pos, physicsClientId=self.CLIENT)
         p.setJointMotorControl2(bodyUniqueId=self.vehicleId, 
                                 jointIndex=self.gv_joint[0], 
                                 controlMode=p.VELOCITY_CONTROL, 
                                 targetVelocity=self.gv_velocity, 
                                 force=self.gv_force_limit,
                                 physicsClientId=self.CLIENT)
-        
         p.setJointMotorControl2(bodyUniqueId=self.vehicleId, 
                                 jointIndex=self.gv_joint[1], 
                                 controlMode=p.VELOCITY_CONTROL, 
@@ -308,24 +398,6 @@ class BaseAviary(gym.Env):
                                 force=self.gv_force_limit,
                                 physicsClientId=self.CLIENT)
 
-        return
-    
-    def _get_vehicle_position(self):
-        """ Returns the helipad center position and orientation """
-        return p.getLinkState(self.vehicleId, self.gv_circleLink)[0:2]
-
-    def get_vehicle_position(self):
-        """ Returns the helipad center position and orientation """
-        return p.getLinkState(self.vehicleId, self.gv_circleLink)[0:2]
-
-    def _get_vehicle_velocity(self):
-        """ Returns the linear and angular velocity of the vehicle """
-        return p.getBaseVelocity(self.vehicleId)
-
-    def get_vehicle_velocity(self):
-        """ Returns the linear and angular velocity of the vehicle """
-        return p.getBaseVelocity(self.vehicleId)
-    
 
 
     def reset(self):
@@ -341,12 +413,13 @@ class BaseAviary(gym.Env):
         p.resetSimulation(physicsClientId=self.CLIENT)
         #### Housekeeping ##########################################
         self._housekeeping()
+        self._randomizer()
         #### Update and store the drones kinematic information #####
         self._updateAndStoreKinematicInformation()
         #### Start video recording #################################
         self._startVideoRecording()
         ### Reloads the ground vehicle ###
-        self._load_ground_vehicle()
+        #self._load_ground_vehicle()
         #### Return the initial observation ########################
         return self._computeObs()
 
@@ -532,6 +605,7 @@ class BaseAviary(gym.Env):
         """
         nth_drone = 0
         gv_pos = np.array(self._get_vehicle_position()[0])
+        #print(gv_pos)
         #### Set target point, camera view and projection matrices #
         target = gv_pos + np.array([0.0,0,0])#np.dot(rot_mat, np.array([0, 0, -1000])) + np.array(self.pos[nth_drone, :]
         DRONE_CAM_VIEW = p.computeViewMatrix(cameraEyePosition=self.pos[nth_drone, :] + np.array([0, 0, 0.75]) +np.array([0, 0, self.L]),
@@ -614,9 +688,9 @@ class BaseAviary(gym.Env):
 
         """
         #random initial position
-        #self.INIT_XYZS_random = (-3+(6*np.random.rand(*self.INIT_XYZS.shape))) + self.INIT_XYZS
+        self.INIT_XYZS_random = (-3+(6*np.random.rand(*self.INIT_XYZS.shape))) + self.INIT_XYZS
         #random inital velocity
-        self.INIT_XYZS_random = self.INIT_XYZS #-4
+        #self.INIT_XYZS_random = self.INIT_XYZS #-4
         #### Initialize/reset counters and zero-valued variables ###
         self.RESET_TIME = time.time()
         self.step_counter = 0
