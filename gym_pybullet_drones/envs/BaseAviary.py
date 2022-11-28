@@ -67,9 +67,9 @@ class BaseAviary(gym.Env):
                  aggregate_phy_steps: int=10,
                  gui=False,
                  record=False,
-                 record_chase = True,
+                 record_chase = False,
                  obstacles=False,
-                 user_debug_gui=True,
+                 user_debug_gui= False,
                  vision_attributes=False,
                  dynamics_attributes=False
                  ):
@@ -161,7 +161,7 @@ class BaseAviary(gym.Env):
         #### Create attributes for vision tasks ####################
         self.VISION_ATTR = vision_attributes
         if self.VISION_ATTR:
-            self.IMG_RES = np.array([64, 48])
+            self.IMG_RES = np.array([84, 84])
             self.IMG_FRAME_PER_SEC = 24
             self.IMG_CAPTURE_FREQ = int(self.SIM_FREQ/self.IMG_FRAME_PER_SEC)
             #TODO hardcode for now
@@ -322,7 +322,7 @@ class BaseAviary(gym.Env):
         return p.getBaseVelocity(self.vehicleId,physicsClientId=self.CLIENT)
     
     def _randomizer(self, init_seed = 1):
-        #random.seed(init_seed)
+        #random.seed(2)
         #self.AGGR_PHY_STEPS = self.AGGR_PHY_STEPS_original + random.randint(0,6) - 3
 
         #### Initialize the GV parameters ##########################
@@ -331,14 +331,14 @@ class BaseAviary(gym.Env):
         #### Path to the file to be parsed #########################
         self.urdf_file = "/home/user/landing/g_vehicle/parsed.urdf"
         #### Path to the plane URDF file ###########################
-        self.plane_path = '/home/user/miniconda3/lib/python3.7/site-packages/pybullet_data/plane.urdf'
+        self.plane_path = '/home/user/miniconda3/envs/drqv2/lib/python3.8/site-packages/pybullet_data/plane.urdf'
         #### Path to the dtd file ###########################
         dtd_path = '/root/gym-pybullet-drones/gym_pybullet_drones/envs/single_agent_rl/dtd'
 
         base_color =  ['0.0', '1.0', '0.0', '1.0']
         circle_color =  ['1.0', '0.0', '0.0', '1.0']
         plane_color =  ['1.0', '1.0', '1.0', '1.0']
-        grid_scale = ['5', '5']
+        grid_scale = ['1', '1']
         random_texture = True
 
         with open(self.xacro_file, 'r') as file:
@@ -364,7 +364,7 @@ class BaseAviary(gym.Env):
 
         if random_texture:
             texture_paths = glob.glob(os.path.join(dtd_path, '**', '*.jpg'), recursive=True)
-            random_texture_path = texture_paths[random.randint(0, len(texture_paths) - 1)]
+            random_texture_path = texture_paths[random.randint(0, 4)*10]
             #random_texture_path ='/root/gym-pybullet-drones/gym_pybullet_drones/envs/single_agent_rl/dtd/asp_test.jpeg' 
             textureId = p.loadTexture(random_texture_path, physicsClientId=self.CLIENT)
             p.changeVisualShape(self.PLANE_ID, -1, textureUniqueId=textureId, physicsClientId=self.CLIENT)
@@ -454,7 +454,7 @@ class BaseAviary(gym.Env):
         if self.RECORD and not self.GUI and self.step_counter%self.CAPTURE_FREQ == 0:
             [w, h, rgb, dep, seg] = p.getCameraImage(width=self.VID_WIDTH,
                                                      height=self.VID_HEIGHT,
-                                                     shadow=1,
+                                                     shadow=0,
                                                      viewMatrix=self.CAM_VIEW,
                                                      projectionMatrix=self.CAM_PRO,
                                                      renderer=p.ER_TINY_RENDERER,
@@ -588,8 +588,7 @@ class BaseAviary(gym.Env):
     
     def render(self,
                mode='human',
-               close=False
-               ):
+               close=False):
         """Prints a textual output of the environment.
 
         Parameters
@@ -619,7 +618,7 @@ class BaseAviary(gym.Env):
         SEG_FLAG = True
         [w, h, rgb, dep, seg] = p.getCameraImage(width=882,
                                                 height=836,
-                                                shadow=1,
+                                                shadow=0,
                                                 viewMatrix=DRONE_CAM_VIEW,
                                                 projectionMatrix=DRONE_CAM_PRO,
                                                 renderer=p.ER_TINY_RENDERER,
@@ -844,7 +843,7 @@ class BaseAviary(gym.Env):
         SEG_FLAG = p.ER_SEGMENTATION_MASK_OBJECT_AND_LINKINDEX if segmentation else p.ER_NO_SEGMENTATION_MASK
         [w, h, rgb, dep, seg] = p.getCameraImage(width=self.IMG_RES[0],
                                                  height=self.IMG_RES[1],
-                                                 shadow=1,
+                                                 shadow=0,
                                                  viewMatrix=DRONE_CAM_VIEW,
                                                  projectionMatrix=DRONE_CAM_PRO,
                                                  flags=SEG_FLAG,
@@ -852,7 +851,7 @@ class BaseAviary(gym.Env):
                                                  )
         #add padding
         #print(rgb.shape)
-        rgb = np.pad(rgb, ((8,8),(0,0),(0,0)), 'constant')                                
+        #rgb = np.pad(rgb, ((8,8),(0,0),(0,0)), 'constant')                                
         #rgb = np.reshape(rgb, (h, w, 4))
         #print(rgb.shape)
         rgb = np.moveaxis(rgb, -1, 0)
