@@ -63,13 +63,12 @@ class BaseAviary(gym.Env):
                  initial_xyzs=None,
                  initial_rpys=[np.pi, 0, 0],
                  physics: Physics=Physics.PYB,
-                 freq: int=240,
-                 aggregate_phy_steps: int=10,
+                 freq: int=180,
+                 aggregate_phy_steps: int=4,
                  gui=False,
                  record=False,
-                 record_chase = True,
-                 obstacles=False,
-                 user_debug_gui=True,
+                 record_chase = False,
+                 user_debug_gui=False,
                  vision_attributes=False,
                  dynamics_attributes=False
                  ):
@@ -97,8 +96,6 @@ class BaseAviary(gym.Env):
             Whether to use PyBullet's GUI.
         record : bool, optional
             Whether to save a video of the simulation in folder `files/videos/`.
-        obstacles : bool, optional
-            Whether to add obstacles to the simulation.
         user_debug_gui : bool, optional
             Whether to draw the drones' axes and the GUI RPMs sliders.
         vision_attributes : bool, optional
@@ -124,7 +121,6 @@ class BaseAviary(gym.Env):
         self.RECORD = record
         self.RECORD_CHASE = record_chase
         self.PHYSICS = physics
-        self.OBSTACLES = obstacles
         self.USER_DEBUG = user_debug_gui
         self.URDF = self.DRONE_MODEL.value + ".urdf"
         #### Load the drone properties from the .urdf file #########
@@ -270,48 +266,6 @@ class BaseAviary(gym.Env):
             self.gv_poss_list = []
             self.uav_poss_list = []
     ################################################################################
-
-    # def _initialize_ground_vehicle(self):
-    #     """ Initializes the vehicle model """
-    #     #### Desired velocity ######################################
-    #     self.gv_velocity = 18 - 6*np.random.rand()
-    #     #### The wheel bar joints ##################################
-    #     self.gv_joint = [1, 4]
-    #     #### The helipad circle link id  ###########################
-    #     self.gv_circleLink = 9
-    #     #### Max force to reach the desired velocity ###############
-    #     self.gv_force_limit = 600
-
-    #     #### Path to the actual urdf file ##########################
-    #     self.xacro_file = "/home/user/landing/g_vehicle/car_v2.urdf"
-    #     #### Path for the to be parsed file ########################
-    #     self.urdf_file = "/home/user/landing/g_vehicle/parsed.urdf"
-
-    #     parser_command = 'xacro ' + self.xacro_file + ' > ' + self.urdf_file
-    #     os.system(parser_command)
-
-    #     self._load_ground_vehicle()
-        
-    #     return
-    
-    # def _load_ground_vehicle(self):
-    #     """ Loads the vehicle model at every reset """
-    #     self.vehicleId = p.loadURDF(self.urdf_file, basePosition = [0.0,0.0,0], physicsClientId=self.CLIENT)
-    #     p.setJointMotorControl2(bodyUniqueId=self.vehicleId, 
-    #                             jointIndex=self.gv_joint[0], 
-    #                             controlMode=p.VELOCITY_CONTROL, 
-    #                             targetVelocity=self.gv_velocity, 
-    #                             force=self.gv_force_limit,
-    #                             physicsClientId=self.CLIENT)
-        
-    #     p.setJointMotorControl2(bodyUniqueId=self.vehicleId, 
-    #                             jointIndex=self.gv_joint[1], 
-    #                             controlMode=p.VELOCITY_CONTROL, 
-    #                             targetVelocity=self.gv_velocity, 
-    #                             force=self.gv_force_limit,
-    #                             physicsClientId=self.CLIENT)
-    # 
-    #     return
     
     def _get_vehicle_position(self):
         """ Returns the helipad center position and orientation """
@@ -331,39 +285,45 @@ class BaseAviary(gym.Env):
         #### Path to the file to be parsed #########################
         self.urdf_file = "/home/user/landing/g_vehicle/parsed.urdf"
         #### Path to the plane URDF file ###########################
-        self.plane_path = '/home/user/miniconda3/lib/python3.7/site-packages/pybullet_data/plane.urdf'
+        # self.plane_path = '/home/user/miniconda3/lib/python3.7/site-packages/pybullet_data/plane.urdf'
+        self.plane_path = '/home/user/miniconda3/envs/drqv2/lib/python3.8/site-packages/pybullet_data/plane.urdf'
         #### Path to the dtd file ###########################
-        dtd_path = '/root/gym-pybullet-drones/gym_pybullet_drones/envs/single_agent_rl/dtd'
+        self.dtd_path = '/root/gym-pybullet-drones/gym_pybullet_drones/envs/single_agent_rl/dtd'
 
         base_color =  ['0.0', '1.0', '0.0', '1.0']
         circle_color =  ['1.0', '0.0', '0.0', '1.0']
         plane_color =  ['1.0', '1.0', '1.0', '1.0']
-        grid_scale = ['5', '5']
-        random_texture = True
+        grid_scale = ['50', '50']
+        random_ground = False
+        random_texture = False
+        random_gv = False
 
-        with open(self.xacro_file, 'r') as file:
-            lines = file.readlines()
-        for index, line in enumerate(lines):
-            if line == '  <material name="base_color">\n':
-                lines[index+1] = '    <color rgba="{} {} {} {}"/>\n'.format(*base_color)
-            if line == '  <material name="circle_color">\n':
-                lines[index+1] = '    <color rgba="{} {} {} {}"/>\n'.format(*circle_color)
-        with open(self.xacro_file, 'w') as file:
-            file.writelines(lines)
-        with open(self.plane_path, 'r') as file:
-            lines = file.readlines()
-        for index, line in enumerate(lines):
-            if line == '       <material name="white">\n':
-                lines[index+1] = '        <color rgba="{} {} {} {}"/>\n'.format(*plane_color)
-            if line == '      <origin rpy="0 0 0" xyz="0 0 0"/>\n' and lines[index+1]== '      <geometry>\n':
-                lines[index+2] = '                      <mesh filename="plane100.obj" scale="{} {} 1"/>\n'.format(*grid_scale)
-        with open(self.plane_path, 'w') as file:
-            lines = file.writelines(lines)
-        parser_command = 'xacro ' + self.xacro_file + ' > ' + self.urdf_file
-        os.system(parser_command)
+        if random_gv:
+            with open(self.xacro_file, 'r') as file:
+                lines = file.readlines()
+            for index, line in enumerate(lines):
+                if line == '  <material name="base_color">\n':
+                    lines[index+1] = '    <color rgba="{} {} {} {}"/>\n'.format(*base_color)
+                if line == '  <material name="circle_color">\n':
+                    lines[index+1] = '    <color rgba="{} {} {} {}"/>\n'.format(*circle_color)
+            with open(self.xacro_file, 'w') as file:
+                file.writelines(lines)
+
+        if random_ground:
+            with open(self.plane_path, 'r') as file:
+                lines = file.readlines()
+            for index, line in enumerate(lines):
+                if line == '       <material name="white">\n':
+                    lines[index+1] = '        <color rgba="{} {} {} {}"/>\n'.format(*plane_color)
+                if line == '      <origin rpy="0 0 0" xyz="0 0 0"/>\n' and lines[index+1]== '      <geometry>\n':
+                    lines[index+2] = '                      <mesh filename="plane100.obj" scale="{} {} 1"/>\n'.format(*grid_scale)
+            with open(self.plane_path, 'w') as file:
+                lines = file.writelines(lines)
+            parser_command = 'xacro ' + self.xacro_file + ' > ' + self.urdf_file
+            os.system(parser_command)
 
         if random_texture:
-            texture_paths = glob.glob(os.path.join(dtd_path, '**', '*.jpg'), recursive=True)
+            texture_paths = glob.glob(os.path.join(self.dtd_path, '**', '*.jpg'), recursive=True)
             random_texture_path = texture_paths[random.randint(0, len(texture_paths) - 1)]
             #random_texture_path ='/root/gym-pybullet-drones/gym_pybullet_drones/envs/single_agent_rl/dtd/asp_test.jpeg' 
             textureId = p.loadTexture(random_texture_path, physicsClientId=self.CLIENT)
@@ -381,7 +341,11 @@ class BaseAviary(gym.Env):
         self.gv_joint = [1, 4]
         #### The helipad circle link id  ###########################
         self.gv_circleLink = 9
-        self.vehicleId = p.loadURDF(self.urdf_file, basePosition = self.gv_pos, physicsClientId=self.CLIENT)
+
+        # yaw = random.random() * 2 * np.pi
+        yaw = np.pi / 6
+
+        self.vehicleId = p.loadURDF(self.urdf_file, basePosition = self.gv_pos, physicsClientId=self.CLIENT, baseOrientation=[0,0,np.sin(yaw/2), np.cos(yaw/2)])
         p.setJointMotorControl2(bodyUniqueId=self.vehicleId, 
                                 jointIndex=self.gv_joint[0], 
                                 controlMode=p.VELOCITY_CONTROL, 
@@ -415,8 +379,6 @@ class BaseAviary(gym.Env):
         self._updateAndStoreKinematicInformation()
         #### Start video recording #################################
         self._startVideoRecording()
-        ### Reloads the ground vehicle ###
-        #self._load_ground_vehicle()
         #### Return the initial observation ########################
         return self._computeObs()
 
@@ -454,69 +416,17 @@ class BaseAviary(gym.Env):
         if self.RECORD and not self.GUI and self.step_counter%self.CAPTURE_FREQ == 0:
             [w, h, rgb, dep, seg] = p.getCameraImage(width=self.VID_WIDTH,
                                                      height=self.VID_HEIGHT,
-                                                     shadow=1,
+                                                     shadow=0,
                                                      viewMatrix=self.CAM_VIEW,
                                                      projectionMatrix=self.CAM_PRO,
+                                                    #  renderer=p.ER_BULLET_HARDWARE_OPENGL,
                                                      renderer=p.ER_TINY_RENDERER,
                                                      flags=p.ER_SEGMENTATION_MASK_OBJECT_AND_LINKINDEX,
                                                      physicsClientId=self.CLIENT
                                                      )
             (Image.fromarray(np.reshape(rgb, (h, w, 4)), 'RGBA')).save(self.IMG_PATH+"frame_"+str(self.FRAME_NUM)+".png")
-            #### Save the depth or segmentation view instead #######
-            # dep = ((dep-np.min(dep)) * 255 / (np.max(dep)-np.min(dep))).astype('uint8')
-            # (Image.fromarray(np.reshape(dep, (h, w)))).save(self.IMG_PATH+"frame_"+str(self.FRAME_NUM)+".png")
-            # seg = ((seg-np.min(seg)) * 255 / (np.max(seg)-np.min(seg))).astype('uint8')
-            # (Image.fromarray(np.reshape(seg, (h, w)))).save(self.IMG_PATH+"frame_"+str(self.FRAME_NUM)+".png")
+
             self.FRAME_NUM += 1
-        # if self.RECORD_CHASE and not self.GUI and self.step_counter%self.CAPTURE_FREQ == 0:
-        #     nth_drone = 0
-        #     gv_pos = np.array(self._get_vehicle_position()[0])
-        #     #### Set target point, camera view and projection matrices #
-        #     target = gv_pos + np.array([0.0,0,0])#np.dot(rot_mat, np.array([0, 0, -1000])) + np.array(self.pos[nth_drone, :]
-        #     DRONE_CAM_VIEW = p.computeViewMatrix(cameraEyePosition=self.pos[nth_drone, :] + np.array([0, 0, 0.75]) +np.array([0, 0, self.L]),
-        #                                         cameraTargetPosition=target,
-        #                                         cameraUpVector=[1, 0, 0],
-        #                                         physicsClientId=self.CLIENT
-        #                                         )
-        #     DRONE_CAM_PRO =  p.computeProjectionMatrixFOV(fov=60.0,
-        #                                                 aspect=1.0,
-        #                                                 nearVal=self.L,
-        #                                                 farVal=1000.0
-        #                                                 )
-        #     #SEG_FLAG = p.ER_SEGMENTATION_MASK_OBJECT_AND_LINKINDEX if segmentation else p.ER_NO_SEGMENTATION_MASK
-        #     SEG_FLAG = True
-        #     [w, h, rgb, dep, seg] = p.getCameraImage(width=882,
-        #                                             height=836,
-        #                                             shadow=1,
-        #                                             viewMatrix=DRONE_CAM_VIEW,
-        #                                             projectionMatrix=DRONE_CAM_PRO,
-        #                                             renderer=p.ER_TINY_RENDERER,
-        #                                             flags=p.ER_SEGMENTATION_MASK_OBJECT_AND_LINKINDEX,
-        #                                             physicsClientId=self.CLIENT
-        #                                             )
-        #     (Image.fromarray(np.reshape(rgb, (h, w, 4)), 'RGBA')).save(self.IMG_PATH_CHASE+"frame_"+str(self.FRAME_NUM)+".png")
-        #     #create matplotlib and record frames from that
-        #     fig = plt.figure()
-        #     ax = plt.axes(projection ='3d')
-        #     uav_pos = self.pos[0,:]
-        #     gv_pos = self.get_vehicle_position()[0]
-        #     self.gv_poss_list.append(gv_pos)
-        #     self.uav_poss_list.append(uav_pos.copy())
-        #     uav_poss = np.array(self.uav_poss_list)
-        #     gv_poss = np.array(self.gv_poss_list)
-        #     ax.plot3D(uav_poss[:,0], uav_poss[:,1], uav_poss[:,2], 'green', label = "UAS trajectory",linewidth=4.0)
-        #     ax.plot3D(gv_poss[:,0], gv_poss[:,1], gv_poss[:,2], 'red', label = "Landing platform trajectory",linewidth=4.0, linestyle = '--')
-        #     ax.set_xlabel('x-position (m)', labelpad=8)
-        #     # naming the y axis
-        #     ax.set_ylabel('y-position (m)', labelpad=8)
-        #     ax.set_zlabel('z-position (m)', labelpad=8)
-        #     ax.legend(fontsize = 14, loc='upper left')
-        #     ax.axes.set_xlim3d(left=-1, right=15) 
-        #     ax.axes.set_ylim3d(bottom=-4, top=4) 
-        #     ax.axes.set_zlim3d(bottom=-0, top=13)
-        #     graph_path = self.IMG_PATH_GRAPH+"frame_"+str(self.FRAME_NUM)+".png"
-        #     plt.savefig(graph_path, bbox_inches='tight', dpi=200)
-        #     plt.close()
         #### Read the GUI's input parameters #######################
         if self.GUI and self.USER_DEBUG:
             current_input_switch = p.readUserDebugParameter(self.INPUT_SWITCH, physicsClientId=self.CLIENT)
@@ -615,11 +525,9 @@ class BaseAviary(gym.Env):
                                                     nearVal=self.L,
                                                     farVal=1000.0
                                                     )
-        #SEG_FLAG = p.ER_SEGMENTATION_MASK_OBJECT_AND_LINKINDEX if segmentation else p.ER_NO_SEGMENTATION_MASK
-        SEG_FLAG = True
         [w, h, rgb, dep, seg] = p.getCameraImage(width=882,
                                                 height=836,
-                                                shadow=1,
+                                                shadow=0,
                                                 viewMatrix=DRONE_CAM_VIEW,
                                                 projectionMatrix=DRONE_CAM_PRO,
                                                 renderer=p.ER_TINY_RENDERER,
@@ -633,11 +541,14 @@ class BaseAviary(gym.Env):
               "——— wall-clock time {:.1f}s,".format(time.time()-self.RESET_TIME),
               "simulation time {:.1f}s@{:d}Hz ({:.2f}x)".format(self.step_counter*self.TIMESTEP, self.SIM_FREQ, (self.step_counter*self.TIMESTEP)/(time.time()-self.RESET_TIME)))
         for i in range (self.NUM_DRONES):
+            # print("[INFO] BaseAviary.render() ——— drone {:d}".format(i),
+            #       "——— x {:+06.2f}, y {:+06.2f}, z {:+06.2f}".format(self.pos[i, 0], self.pos[i, 1], self.pos[i, 2]),
+            #       "——— velocity {:+06.2f}, {:+06.2f}, {:+06.2f}".format(self.vel[i, 0], self.vel[i, 1], self.vel[i, 2]),
+            #       "——— roll {:+06.2f}, pitch {:+06.2f}, yaw {:+06.2f}".format(self.rpy[i, 0]*self.RAD2DEG, self.rpy[i, 1]*self.RAD2DEG, self.rpy[i, 2]*self.RAD2DEG),
+            #       "——— angular velocity {:+06.4f}, {:+06.4f}, {:+06.4f} ——— ".format(self.ang_v[i, 0], self.ang_v[i, 1], self.ang_v[i, 2]))
             print("[INFO] BaseAviary.render() ——— drone {:d}".format(i),
-                  "——— x {:+06.2f}, y {:+06.2f}, z {:+06.2f}".format(self.pos[i, 0], self.pos[i, 1], self.pos[i, 2]),
-                  "——— velocity {:+06.2f}, {:+06.2f}, {:+06.2f}".format(self.vel[i, 0], self.vel[i, 1], self.vel[i, 2]),
-                  "——— roll {:+06.2f}, pitch {:+06.2f}, yaw {:+06.2f}".format(self.rpy[i, 0]*self.RAD2DEG, self.rpy[i, 1]*self.RAD2DEG, self.rpy[i, 2]*self.RAD2DEG),
-                  "——— angular velocity {:+06.4f}, {:+06.4f}, {:+06.4f} ——— ".format(self.ang_v[i, 0], self.ang_v[i, 1], self.ang_v[i, 2]))
+                    "——— x {:+06.2f}, y {:+06.2f}, z {:+06.2f}".format(self.pos[i, 0], self.pos[i, 1], self.pos[i, 2]),
+                    "——— velocity {:+06.2f}, {:+06.2f}, {:+06.2f}".format(self.vel[i, 0], self.vel[i, 1], self.vel[i, 2]))
         return Image.fromarray(np.reshape(rgb, (h, w, 4)), 'RGBA')
     
     ################################################################################
@@ -686,8 +597,6 @@ class BaseAviary(gym.Env):
         """
         #random initial position
         self.INIT_XYZS_random = (-3+(6*np.random.rand(*self.INIT_XYZS.shape))) + self.INIT_XYZS
-        #random inital velocity
-        #self.INIT_XYZS_random = self.INIT_XYZS #-4
         #### Initialize/reset counters and zero-valued variables ###
         self.RESET_TIME = time.time()
         self.step_counter = 0
@@ -722,16 +631,6 @@ class BaseAviary(gym.Env):
                                               flags = p.URDF_USE_INERTIA_FROM_FILE,
                                               physicsClientId=self.CLIENT
                                               ) for i in range(self.NUM_DRONES)])
-        for i in range(self.NUM_DRONES):
-            #### Show the frame of reference of the drone, note that ###
-            #### It severly slows down the GUI #########################
-            if self.GUI and self.USER_DEBUG:
-                self._showDroneLocalAxes(i)
-            #### Disable collisions between drones' and the ground plane
-            #### E.g., to start a drone at [0,0,0] #####################
-            # p.setCollisionFilterPair(bodyUniqueIdA=self.PLANE_ID, bodyUniqueIdB=self.DRONE_IDS[i], linkIndexA=-1, linkIndexB=-1, enableCollision=0, physicsClientId=self.CLIENT)
-        if self.OBSTACLES:
-            self._addObstacles()
         self.ctrl.reset()
     
     ################################################################################
@@ -800,7 +699,7 @@ class BaseAviary(gym.Env):
 
     def _getDroneImages(self,
                         nth_drone,
-                        segmentation: bool=True
+                        segmentation: bool=False
                         ):
         """Returns camera captures from the n-th drone POV.
 
@@ -844,82 +743,17 @@ class BaseAviary(gym.Env):
         SEG_FLAG = p.ER_SEGMENTATION_MASK_OBJECT_AND_LINKINDEX if segmentation else p.ER_NO_SEGMENTATION_MASK
         [w, h, rgb, dep, seg] = p.getCameraImage(width=self.IMG_RES[0],
                                                  height=self.IMG_RES[1],
-                                                 shadow=1,
+                                                 shadow=0,
                                                  viewMatrix=DRONE_CAM_VIEW,
                                                  projectionMatrix=DRONE_CAM_PRO,
                                                  flags=SEG_FLAG,
                                                  physicsClientId=self.CLIENT
                                                  )
-        #add padding
-        #print(rgb.shape)
         rgb = np.pad(rgb, ((8,8),(0,0),(0,0)), 'constant')                                
-        #rgb = np.reshape(rgb, (h, w, 4))
-        #print(rgb.shape)
         rgb = np.moveaxis(rgb, -1, 0)
         dep = np.reshape(dep, (h, w))
         seg = np.reshape(seg, (h, w))
-        #im = Image.fromarray(rgb.transpose(1, 2, 0), 'RGBA')
-        #im.save("your_file_2.png")
-        #print('calling correct image?')
         return rgb, dep, seg
-
-    ################################################################################
-
-    def _exportImage(self,
-                     img_type: ImageType,
-                     img_input,
-                     path: str,
-                     frame_num: int=0
-                     ):
-        """Returns camera captures from the n-th drone POV.
-
-        Parameters
-        ----------
-        img_type : ImageType
-            The image type: RGB(A), depth, segmentation, or B&W (from RGB).
-        img_input : ndarray
-            (h, w, 4)-shaped array of uint8's for RBG(A) or B&W images.
-            (h, w)-shaped array of uint8's for depth or segmentation images.
-        path : str
-            Path where to save the output as PNG.
-        fram_num: int, optional
-            Frame number to append to the PNG's filename.
-
-        """
-        if img_type == ImageType.RGB:
-            (Image.fromarray(img_input.astype('uint8'), 'RGBA')).save(path+"frame_"+str(frame_num)+".png")
-        elif img_type == ImageType.DEP:
-            temp = ((img_input-np.min(img_input)) * 255 / (np.max(img_input)-np.min(img_input))).astype('uint8')
-        elif img_type == ImageType.SEG:
-            temp = ((img_input-np.min(img_input)) * 255 / (np.max(img_input)-np.min(img_input))).astype('uint8')
-        elif img_type == ImageType.BW:
-            temp = (np.sum(img_input[:, :, 0:2], axis=2) / 3).astype('uint8')
-        else:
-            print("[ERROR] in BaseAviary._exportImage(), unknown ImageType")
-            exit()
-        if img_type != ImageType.RGB:
-            (Image.fromarray(temp)).save(path+"frame_"+str(frame_num)+".png")
-
-    ################################################################################
-
-    def _getAdjacencyMatrix(self):
-        """Computes the adjacency matrix of a multi-drone system.
-
-        Attribute NEIGHBOURHOOD_RADIUS is used to determine neighboring relationships.
-
-        Returns
-        -------
-        ndarray
-            (NUM_DRONES, NUM_DRONES)-shaped array of 0's and 1's representing the adjacency matrix 
-            of the system: adj_mat[i,j] == 1 if (i, j) are neighbors; == 0 otherwise.
-
-        """
-        adjacency_mat = np.identity(self.NUM_DRONES)
-        for i in range(self.NUM_DRONES-1):
-            for j in range(self.NUM_DRONES-i-1):
-                if np.linalg.norm(self.pos[i, :]-self.pos[j+i+1, :]) < self.NEIGHBOURHOOD_RADIUS:
-                    adjacency_mat[i, j+i+1] = adjacency_mat[j+i+1, i] = 1
-        return adjacency_mat
     
     ################################################################################
     
@@ -979,7 +813,7 @@ class BaseAviary(gym.Env):
                                                computeLinkVelocity=1,
                                                computeForwardKinematics=1,
                                                physicsClientId=self.CLIENT
-                                               ))
+                                               ), dtype=object)
         #### Simple, per-propeller ground effects ##################
         prop_heights = np.array([link_states[0, 0][2], link_states[1, 0][2], link_states[2, 0][2], link_states[3, 0][2]])
         prop_heights = np.clip(prop_heights, self.GND_EFF_H_CLIP, np.inf)
@@ -1002,18 +836,6 @@ class BaseAviary(gym.Env):
               rpm,
               nth_drone
               ):
-        """PyBullet implementation of a drag model.
-
-        Based on the the system identification in (Forster, 2015).
-
-        Parameters
-        ----------
-        rpm : ndarray
-            (4)-shaped array of ints containing the RPMs values of the 4 motors.
-        nth_drone : int
-            The ordinal number/position of the desired drone in list self.DRONE_IDS.
-
-        """
         #### Rotation matrix of the base ###########################
         base_rot = np.array(p.getMatrixFromQuaternion(self.quat[nth_drone, :])).reshape(3, 3)
         #### Simple draft model applied to the base/center of mass #
@@ -1032,16 +854,6 @@ class BaseAviary(gym.Env):
     def _downwash(self,
                   nth_drone
                   ):
-        """PyBullet implementation of a ground effect model.
-
-        Based on experiments conducted at the Dynamic Systems Lab by SiQi Zhou.
-
-        Parameters
-        ----------
-        nth_drone : int
-            The ordinal number/position of the desired drone in list self.DRONE_IDS.
-
-        """
         for i in range(self.NUM_DRONES):
             delta_z = self.pos[i, 2] - self.pos[nth_drone, 2]
             delta_xy = np.linalg.norm(np.array(self.pos[i, 0:2]) - np.array(self.pos[nth_drone, 0:2]))
@@ -1166,73 +978,7 @@ class BaseAviary(gym.Env):
             res_action = np.resize(action, (1, 4)) # Resize, possibly with repetition, to cope with different action spaces in RL subclasses
             self.last_action = np.reshape(res_action, (self.NUM_DRONES, 4))
     
-    ################################################################################
 
-    def _showDroneLocalAxes(self,
-                            nth_drone
-                            ):
-        """Draws the local frame of the n-th drone in PyBullet's GUI.
-
-        Parameters
-        ----------
-        nth_drone : int
-            The ordinal number/position of the desired drone in list self.DRONE_IDS.
-
-        """
-        if self.GUI:
-            AXIS_LENGTH = 2*self.L
-            self.X_AX[nth_drone] = p.addUserDebugLine(lineFromXYZ=[0, 0, 0],
-                                                      lineToXYZ=[AXIS_LENGTH, 0, 0],
-                                                      lineColorRGB=[1, 0, 0],
-                                                      parentObjectUniqueId=self.DRONE_IDS[nth_drone],
-                                                      parentLinkIndex=-1,
-                                                      replaceItemUniqueId=int(self.X_AX[nth_drone]),
-                                                      physicsClientId=self.CLIENT
-                                                      )
-            self.Y_AX[nth_drone] = p.addUserDebugLine(lineFromXYZ=[0, 0, 0],
-                                                      lineToXYZ=[0, AXIS_LENGTH, 0],
-                                                      lineColorRGB=[0, 1, 0],
-                                                      parentObjectUniqueId=self.DRONE_IDS[nth_drone],
-                                                      parentLinkIndex=-1,
-                                                      replaceItemUniqueId=int(self.Y_AX[nth_drone]),
-                                                      physicsClientId=self.CLIENT
-                                                      )
-            self.Z_AX[nth_drone] = p.addUserDebugLine(lineFromXYZ=[0, 0, 0],
-                                                      lineToXYZ=[0, 0, AXIS_LENGTH],
-                                                      lineColorRGB=[0, 0, 1],
-                                                      parentObjectUniqueId=self.DRONE_IDS[nth_drone],
-                                                      parentLinkIndex=-1,
-                                                      replaceItemUniqueId=int(self.Z_AX[nth_drone]),
-                                                      physicsClientId=self.CLIENT
-                                                      )
-    
-    ################################################################################
-
-    def _addObstacles(self):
-        """Add obstacles to the environment.
-
-        These obstacles are loaded from standard URDF files included in Bullet.
-
-        """
-        p.loadURDF("samurai.urdf",
-                   physicsClientId=self.CLIENT
-                   )
-        p.loadURDF("duck_vhacd.urdf",
-                   [-.5, -.5, .05],
-                   p.getQuaternionFromEuler([0, 0, 0]),
-                   physicsClientId=self.CLIENT
-                   )
-        p.loadURDF("cube_no_rotation.urdf",
-                   [-.5, -2.5, .5],
-                   p.getQuaternionFromEuler([0, 0, 0]),
-                   physicsClientId=self.CLIENT
-                   )
-        p.loadURDF("sphere2.urdf",
-                   [0, 2, .5],
-                   p.getQuaternionFromEuler([0,0,0]),
-                   physicsClientId=self.CLIENT
-                   )
-    
     ################################################################################
     
     def _parseURDFParameters(self):

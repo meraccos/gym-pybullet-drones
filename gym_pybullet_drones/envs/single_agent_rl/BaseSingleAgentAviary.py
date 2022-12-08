@@ -44,8 +44,8 @@ class BaseSingleAgentAviary(BaseAviary):
                  initial_xyzs=None,
                  initial_rpys=None,
                  physics: Physics=Physics.PYB,
-                 freq: int=240,
-                 aggregate_phy_steps: int=10,
+                 freq: int=120,
+                 aggregate_phy_steps: int=4,
                  gui=False,
                  record=False, 
                  obs: ObservationType=ObservationType.KIN,
@@ -55,7 +55,6 @@ class BaseSingleAgentAviary(BaseAviary):
 
         Attribute `num_drones` is automatically set to 1; `vision_attributes`
         and `dynamics_attributes` are selected based on the choice of `obs`
-        and `act`; `obstacles` is set to True and overridden with landmarks for
         vision applications; `user_debug_gui` is set to False for performance.
 
         Parameters
@@ -119,7 +118,6 @@ class BaseSingleAgentAviary(BaseAviary):
                          aggregate_phy_steps=aggregate_phy_steps,
                          gui=gui,
                          record=record, 
-                         obstacles=False, # Add obstacles for RGB observations and/or FlyThruGate
                          user_debug_gui=False, # Remove of RPM sliders from all single agent learning aviaries
                          vision_attributes=vision_attributes,
                          dynamics_attributes=dynamics_attributes
@@ -134,39 +132,6 @@ class BaseSingleAgentAviary(BaseAviary):
                 print("[ERROR] in BaseSingleAgentAviary.__init__(), ActionType.TUN requires an implementation of _trajectoryTrackingRPMs in the instantiated subclass")
                 exit()
         self.max_episode_steps = int(self.EPISODE_LEN_SEC*self.SIM_FREQ/self.AGGR_PHY_STEPS)
-
-    ################################################################################
-
-    def _addObstacles(self):
-        """Add obstacles to the environment.
-
-        Only if the observation is of type RGB, 4 landmarks are added.
-        Overrides BaseAviary's method.
-
-        """
-        if self.OBS_TYPE == ObservationType.RGB:
-            p.loadURDF("block.urdf",
-                       [1, 0, .1],
-                       p.getQuaternionFromEuler([0, 0, 0]),
-                       physicsClientId=self.CLIENT
-                       )
-            p.loadURDF("cube_small.urdf",
-                       [0, 1, .1],
-                       p.getQuaternionFromEuler([0, 0, 0]),
-                       physicsClientId=self.CLIENT
-                       )
-            p.loadURDF("duck_vhacd.urdf",
-                       [-1, 0, .1],
-                       p.getQuaternionFromEuler([0, 0, 0]),
-                       physicsClientId=self.CLIENT
-                       )
-            p.loadURDF("teddy_vhacd.urdf",
-                       [0, -1, .1],
-                       p.getQuaternionFromEuler([0, 0, 0]),
-                       physicsClientId=self.CLIENT
-                       )
-        else:
-            pass
 
     ################################################################################
 
@@ -380,19 +345,3 @@ class BaseSingleAgentAviary(BaseAviary):
         else:
             print("[ERROR] in BaseSingleAgentAviary._computeObs()")
     
-    ################################################################################
-
-    def _clipAndNormalizeState(self,
-                               state
-                               ):
-        """Normalizes a drone's state to the [-1,1] range.
-
-        Must be implemented in a subclass.
-
-        Parameters
-        ----------
-        state : ndarray
-            Array containing the non-normalized state of a single drone.
-
-        """
-        raise NotImplementedError
