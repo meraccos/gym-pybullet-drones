@@ -63,8 +63,8 @@ class BaseAviary(gym.Env):
                  initial_xyzs=None,
                  initial_rpys=[np.pi, 0, 0],
                  physics: Physics=Physics.PYB,
-                 freq: int=240,
-                 aggregate_phy_steps: int=10,
+                 freq: int=120,
+                 aggregate_phy_steps: int=5,
                  gui=False,
                  record=False,
                  record_chase = False,
@@ -323,7 +323,7 @@ class BaseAviary(gym.Env):
     
     def _randomizer(self, init_seed = 1):
         #random.seed(2)
-        #self.AGGR_PHY_STEPS = self.AGGR_PHY_STEPS_original + random.randint(0,6) - 3
+        self.AGGR_PHY_STEPS = self.AGGR_PHY_STEPS_original + random.randint(0,2) - 1
 
         #### Initialize the GV parameters ##########################
         #### Path to GV URDF file ##################################
@@ -364,7 +364,7 @@ class BaseAviary(gym.Env):
 
         if random_texture:
             texture_paths = glob.glob(os.path.join(dtd_path, '**', '*.jpg'), recursive=True)
-            random_texture_path = texture_paths[random.randint(0, 4)*10]
+            random_texture_path = texture_paths[random.randint(0, 40)]
             #random_texture_path ='/root/gym-pybullet-drones/gym_pybullet_drones/envs/single_agent_rl/dtd/asp_test.jpeg' 
             textureId = p.loadTexture(random_texture_path, physicsClientId=self.CLIENT)
             p.changeVisualShape(self.PLANE_ID, -1, textureUniqueId=textureId, physicsClientId=self.CLIENT)
@@ -381,7 +381,8 @@ class BaseAviary(gym.Env):
         self.gv_joint = [1, 4]
         #### The helipad circle link id  ###########################
         self.gv_circleLink = 9
-        self.vehicleId = p.loadURDF(self.urdf_file, basePosition = self.gv_pos, physicsClientId=self.CLIENT)
+        yaw = np.pi/12 * random.random()
+        self.vehicleId = p.loadURDF(self.urdf_file, basePosition = self.gv_pos, physicsClientId=self.CLIENT, baseOrientation = [0,0,np.sin(yaw/2),np.cos(yaw/2)])
         p.setJointMotorControl2(bodyUniqueId=self.vehicleId, 
                                 jointIndex=self.gv_joint[0], 
                                 controlMode=p.VELOCITY_CONTROL, 

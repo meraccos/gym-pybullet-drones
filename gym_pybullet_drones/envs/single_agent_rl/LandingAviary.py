@@ -15,8 +15,8 @@ class LandingAviary(BaseSingleAgentAviary):
                  initial_xyzs=np.array([0,0,10]),
                  initial_rpys=None,
                  physics: Physics=Physics.PYB_GND_DRAG_DW,
-                 freq: int= 120,
-                 aggregate_phy_steps: int=5,
+                 freq: int= 240,
+                 aggregate_phy_steps: int=10,
                  gui=False,
                  record=False, 
                  obs: ObservationType=ObservationType.RGB,
@@ -99,7 +99,65 @@ class LandingAviary(BaseSingleAgentAviary):
         #seg = np.reshape(seg, (h, w))
         return rgb
     
-    def _computeReward(self):
+ def _computeReward_evil(self):
+        """Computes the current reward value.
+        Returns
+        -------
+        float
+            The reward.
+        """
+        vz_max = -0.5
+        gv_pos = np.array(self._get_vehicle_position()[0])
+        drone_state = self._getDroneStateVector(0)
+        drone_pos = drone_state[0:3]
+        drone_v = drone_state[10:13]
+        error_xy = np.linalg.norm(drone_pos[0:2]-gv_pos[0:2])
+        error_z = np.linalg.norm(drone_pos[2]-gv_pos[2])
+
+        flag_land = drone_pos[2] >= 0.05 and p.getContactPoints(bodyA=1, physicsClientId=self.CLIENT) != ()
+        flag_crash = drone_pos[2] < 0.05 and p.getContactPoints(bodyA=1, physicsClientId=self.CLIENT) != ()
+
+        error_z = error_z + 4
+
+        theta_l = 20
+        theta = np.rad2deg(np.arctan2(abs(error_xy), error_z))
+        r = (error_xy ** 2 + error_z ** 2) ** 0.5
+
+        reward_r = 2 - r / 5
+        reward_theta = 4 / (1 + np.e ** ((theta - theta_l) / 3)) + 2 / (1 + np.e**((theta-6)/2)) - 2
+
+        if drone_v[2]>0:
+            reward_vz = -1
+        elif drone_v[2]>-0.3:
+            reward_vz = -0.3
+        elif drone_v[2]>-0.6:
+            reward_vz = 1
+        elif drone_v[2]>-0.8:
+            reward_vz = -0.8
+        elif np.linalg.norm(drone_v)/self.SPEED_LIMIT[2] > 1.2:
+            reward_vz = -0.8
+        else:
+            reward_vz = -1.5
+
+
+        reward = reward_r + reward_theta + reward_vz
+
+
+        if flag_crash:
+            print('crashed!')
+            reward = -300
+
+        if flag_land:
+            print('landed!')
+            reward = 5000 * np.e ** (-abs(drone_v[2] + 0.5))
+
+        return reward
+
+    def _computeReward(self)
+        reward = self._computeReward_good()
+        return reward
+
+    def _computeReward_good(self):
         """Computes the current reward value.
         Returns
         -------
