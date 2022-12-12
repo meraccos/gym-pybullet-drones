@@ -323,7 +323,7 @@ class BaseAviary(gym.Env):
     
     def _randomizer(self, init_seed = 1):
         #random.seed(2)
-        self.AGGR_PHY_STEPS = self.AGGR_PHY_STEPS_original + random.randint(0,2) - 1
+        self.AGGR_PHY_STEPS = self.AGGR_PHY_STEPS_original + random.randint(0,6) - 3
 
         #### Initialize the GV parameters ##########################
         #### Path to GV URDF file ##################################

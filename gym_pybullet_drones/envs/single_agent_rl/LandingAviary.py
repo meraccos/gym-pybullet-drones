@@ -99,7 +99,7 @@ class LandingAviary(BaseSingleAgentAviary):
         #seg = np.reshape(seg, (h, w))
         return rgb
     
- def _computeReward_evil(self):
+    def _computeReward_evil(self):
         """Computes the current reward value.
         Returns
         -------
@@ -153,7 +153,7 @@ class LandingAviary(BaseSingleAgentAviary):
 
         return reward
 
-    def _computeReward(self)
+    def _computeReward(self):
         reward = self._computeReward_good()
         return reward
 
