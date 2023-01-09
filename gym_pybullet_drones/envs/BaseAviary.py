@@ -323,7 +323,6 @@ class BaseAviary(gym.Env):
     
     def _randomizer(self, init_seed = 1):
         #random.seed(2)
-        self.AGGR_PHY_STEPS = self.AGGR_PHY_STEPS_original + random.randint(0,6) - 3
 
         #### Initialize the GV parameters ##########################
         #### Path to GV URDF file ##################################
@@ -451,6 +450,8 @@ class BaseAviary(gym.Env):
             in each subclass for its format.
 
         """
+        #self.AGGR_PHY_STEPS = self.AGGR_PHY_STEPS_original + random.randint(-1,1)
+        self.AGGR_PHY_STEPS = self.AGGR_PHY_STEPS_original + random.randint(-1,1)
         #### Save PNG video frames if RECORD=True and GUI=False ####
         if self.RECORD and not self.GUI and self.step_counter%self.CAPTURE_FREQ == 0:
             [w, h, rgb, dep, seg] = p.getCameraImage(width=self.VID_WIDTH,
