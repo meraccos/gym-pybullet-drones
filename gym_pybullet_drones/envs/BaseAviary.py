@@ -57,7 +57,7 @@ class BaseAviary(gym.Env):
                  drone_model: DroneModel=DroneModel.CF2X,
                  num_drones: int=1,
                  neighbourhood_radius: float=np.inf,
-                 initial_xyzs=None,
+                 initial_xyzs=[30,3,10],
                  initial_rpys=[np.pi, 0, 0],
                  physics: Physics=Physics.PYB,
                  freq: int=240,
@@ -485,6 +485,31 @@ class BaseAviary(gym.Env):
         yaw = (roll * pitch) * 15
         p.setJointMotorControlMultiDof(self.vehicleId, 8, p.POSITION_CONTROL, targetPosition = [roll, pitch, yaw, 1])
         
+        if self.step_counter != 0 and self.step_counter % 20 == 0:
+            dtd_path = '/root/gym-pybullet-drones/gym_pybullet_drones/envs/single_agent_rl/dtd'
+            texture_paths = glob.glob(os.path.join(dtd_path, '**', '*.jpg'), recursive=True)
+            random_texture_path = texture_paths[random.randint(0, len(texture_paths) - 1)]
+            # random_texture_path ='/root/gym-pybullet-drones/gym_pybullet_drones/envs/single_agent_rl/dtd/asp_test.jpeg' 
+            textureId = p.loadTexture(random_texture_path)
+            # p.changeVisualShape(self.PLANE_ID, -1, textureUniqueId=textureId)
+        
+        # if self.step_counter % 50 == 0:
+        #     self.gv_velocity = 18 - 100*np.random.rand()
+
+        #     print(self.gv_velocity)
+        #     p.setJointMotorControl2(bodyUniqueId=self.vehicleId, 
+        #                         jointIndex=self.gv_joint[0], 
+        #                         controlMode=p.VELOCITY_CONTROL, 
+        #                         targetVelocity=self.gv_velocity, 
+        #                         force=self.gv_force_limit)
+        #     p.setJointMotorControl2(bodyUniqueId=self.vehicleId, 
+        #                         jointIndex=self.gv_joint[1], 
+        #                         controlMode=p.VELOCITY_CONTROL, 
+        #                         targetVelocity=self.gv_velocity, 
+        #                         force=self.gv_force_limit)
+
+
+
 
         return obs, reward, done, info
     
@@ -563,34 +588,49 @@ class BaseAviary(gym.Env):
         """
         #### Initialize the GV parameters ##########################
         #### Path to GV URDF file ##################################
-        self.xacro_file = "/home/user/landing/landing_rl/g_vehicle/car_v2.urdf"
+        self.xacro_file = "/home/user/landing/landing_rl/g_vehicle/car_v4.urdf"
         #### Path to the file to be parsed #########################
         self.urdf_file = "/home/user/landing/landing_rl/g_vehicle/parsed.urdf"
-        #### Path to the plane URDF file## #########################
+        #### Path to the plane URDF file ###########################
         self.plane_path = '/home/user/miniconda3/lib/python3.7/site-packages/pybullet_data/plane.urdf'
-        base_color = ['0.0', '1.0', '1.0', '1.0']         # ['0.0', '1.0', '0.0', '1.0']
-        circle_color = ['0.0', '0.3', '0.0', '1.0']       # ['1.0', '0.0', '0.0', '1.0']
-        plane_color = ['1.0', '1.0', '1.0', '1.0']        # ['1.0', '1.0', '1.0', '1.0']
-        mycar = open(self.xacro_file, 'r')
-        lines = mycar.readlines()
-        mycar.close()
-        for index, line in enumerate(lines):
-            if line == '  <material name="base_color">\n':
-                lines[index+1] = '    <color rgba="{} {} {} {}"/>\n'.format(*base_color)
-            if line == '  <material name="circle_color">\n':
-                lines[index+1] = '    <color rgba="{} {} {} {}"/>\n'.format(*circle_color)
-        mycar = open(self.xacro_file, 'w')
-        mycar.writelines(lines)
-        mycar.close()
-        myplane = open(self.plane_path, 'r')
-        lines = myplane.readlines()
-        myplane.close()
-        for index, line in enumerate(lines):
-            if line == '       <material name="white">\n':
-                lines[index+1] = '        <color rgba="{} {} {} {}"/>\n'.format(*plane_color)
-        myplane = open(self.plane_path, 'w')
-        lines = myplane.writelines(lines)
-        myplane.close()
+        #### Path to the object mtl file ###########################
+        self.mtl_path = '/home/user/landing/landing_rl/g_vehicle/base.mtl'
+
+        # Define the base and plane main colors
+        base_color = [str(round(random.uniform(0,1),1)), str(round(random.uniform(0,1),1)), str(round(random.uniform(0,1),1)), 1]        # ['0.0', '1.0', '0.0', '1.0']
+        plane_color = [str(round(random.uniform(0,1),1)), str(round(random.uniform(0,1),1)), str(round(random.uniform(0,1),1)), 1]       # ['1.0', '1.0', '1.0', '1.0']
+
+        path_random_pad = random.choice(os.listdir("/home/user/landing/transformed"))
+
+        with open(self.xacro_file, 'r+') as mycar:
+            lines = mycar.readlines()
+            for index, line in enumerate(lines):
+                if line == '  <material name="base_color">\n':
+                    lines[index+1] = '    <color rgba="{} {} {} {}"/>\n'.format(*base_color)
+
+            mycar.seek(0)
+            mycar.writelines(lines)
+
+        with open(self.plane_path, 'r+') as myplane:
+            lines = myplane.readlines()
+            for index, line in enumerate(lines):
+                if line == '       <material name="white">\n':
+                    lines[index+1] = '        <color rgba="{} {} {} {}"/>\n'.format(*plane_color)
+
+            myplane.seek(0)
+            lines = myplane.writelines(lines)
+        
+        with open(self.mtl_path, 'r+') as material:
+            lines = material.readlines()          
+            for index, line in enumerate(lines):
+                if 'map_Kd' in line:
+                    lines[index] = '  map_Kd ../../transformed/{}'.format(path_random_pad) 
+                
+            material.seek(0)
+            lines = material.writelines(lines) 
+
+        
+
         parser_command = 'xacro ' + self.xacro_file + ' > ' + self.urdf_file
         os.system(parser_command)
 
@@ -632,7 +672,6 @@ class BaseAviary(gym.Env):
         dtd_path = '/root/gym-pybullet-drones/gym_pybullet_drones/envs/single_agent_rl/dtd'
         texture_paths = glob.glob(os.path.join(dtd_path, '**', '*.jpg'), recursive=True)
         random_texture_path = texture_paths[random.randint(0, len(texture_paths) - 1)]
-        # random_texture_path ='/root/gym-pybullet-drones/gym_pybullet_drones/envs/single_agent_rl/dtd/asp_test.jpeg' 
         textureId = p.loadTexture(random_texture_path)
         p.changeVisualShape(self.PLANE_ID, -1, textureUniqueId=textureId)
 
@@ -659,17 +698,20 @@ class BaseAviary(gym.Env):
 
         """ Loads the vehicle model at every reset """
         #### Desired GV init position ##############################
-        self.gv_pos = [0.2,0.2,0]
+        self.gv_pos = [0,0,0]
         #### Desired velocity ######################################
         self.gv_velocity = 18 - 6*np.random.rand()
         # self.gv_velocity = 1
         #### Max force to reach the desired velocity ###############
         self.gv_force_limit = 600
         self.vehicleId = p.loadURDF(self.urdf_file, basePosition = self.gv_pos)
+
         #### The wheel bar joints ##################################
         self.gv_joint = [1, 4]
         #### The helipad circle link id  ###########################
-        self.gv_circleLink = 9
+        self.gv_circleLink = 7
+
+
         p.setJointMotorControl2(bodyUniqueId=self.vehicleId, 
                                 jointIndex=self.gv_joint[0], 
                                 controlMode=p.VELOCITY_CONTROL, 
@@ -680,6 +722,11 @@ class BaseAviary(gym.Env):
                                 controlMode=p.VELOCITY_CONTROL, 
                                 targetVelocity=self.gv_velocity, 
                                 force=self.gv_force_limit)
+        print('\n\n')
+        print(p.getVisualShapeData(self.vehicleId))
+        print('\n')
+        print(p.getVisualShapeData(self.DRONE_IDS[0]))
+        print('\n\n')
     
     ################################################################################
 
