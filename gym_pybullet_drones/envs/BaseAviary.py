@@ -326,13 +326,17 @@ class BaseAviary(gym.Env):
 
         #### Initialize the GV parameters ##########################
         #### Path to GV URDF file ##################################
-        self.xacro_file = "/home/user/landing/g_vehicle/car_v2.urdf"
+        self.xacro_file = "/home/user/landing/g_vehicle/car_v4.urdf"  # car_v2: sim, car_v4: real landing pad images
         #### Path to the file to be parsed #########################
         self.urdf_file = "/home/user/landing/g_vehicle/parsed.urdf"
         #### Path to the plane URDF file ###########################
         self.plane_path = '/home/user/miniconda3/envs/drqv2/lib/python3.8/site-packages/pybullet_data/plane.urdf'
         #### Path to the dtd file ###########################
         dtd_path = '/root/gym-pybullet-drones/gym_pybullet_drones/envs/single_agent_rl/dtd'
+        #### Path to the object mtl file ###########################
+        self.mtl_path = '/home/user/landing/g_vehicle/base.mtl'
+        #### Path to real landing pad images #######################
+        real_pad_path = random.choice(os.listdir("/home/user/landing/transformed"))
 
         base_color =  ['0.0', '1.0', '0.0', '1.0']
         circle_color =  ['1.0', '0.0', '0.0', '1.0']
@@ -340,24 +344,41 @@ class BaseAviary(gym.Env):
         grid_scale = ['1', '1']
         random_texture = True
 
-        with open(self.xacro_file, 'r') as file:
-            lines = file.readlines()
-        for index, line in enumerate(lines):
-            if line == '  <material name="base_color">\n':
-                lines[index+1] = '    <color rgba="{} {} {} {}"/>\n'.format(*base_color)
-            if line == '  <material name="circle_color">\n':
-                lines[index+1] = '    <color rgba="{} {} {} {}"/>\n'.format(*circle_color)
-        with open(self.xacro_file, 'w') as file:
-            file.writelines(lines)
-        with open(self.plane_path, 'r') as file:
-            lines = file.readlines()
-        for index, line in enumerate(lines):
-            if line == '       <material name="white">\n':
-                lines[index+1] = '        <color rgba="{} {} {} {}"/>\n'.format(*plane_color)
-            if line == '      <origin rpy="0 0 0" xyz="0 0 0"/>\n' and lines[index+1]== '      <geometry>\n':
-                lines[index+2] = '                      <mesh filename="plane100.obj" scale="{} {} 1"/>\n'.format(*grid_scale)
-        with open(self.plane_path, 'w') as file:
-            lines = file.writelines(lines)
+
+        with open(self.xacro_file, 'r+') as mycar:
+            lines = mycar.readlines()
+            for index, line in enumerate(lines):
+                if line == '  <material name="base_color">\n':
+                    lines[index+1] = '    <color rgba="{} {} {} {}"/>\n'.format(*base_color)
+                if line == '  <material name="circle_color">\n':
+                    lines[index+1] = '    <color rgba="{} {} {} {}"/>\n'.format(*circle_color)
+
+            mycar.seek(0)
+            mycar.writelines(lines)
+
+
+        with open(self.plane_path, 'r+') as myplane:
+            lines = myplane.readlines()
+            for index, line in enumerate(lines):
+                if line == '       <material name="white">\n':
+                    lines[index+1] = '        <color rgba="{} {} {} {}"/>\n'.format(*plane_color)
+                if line == '      <origin rpy="0 0 0" xyz="0 0 0"/>\n' and lines[index+1]== '      <geometry>\n':
+                    lines[index+2] = '                      <mesh filename="plane100.obj" scale="{} {} 1"/>\n'.format(*grid_scale)
+
+            myplane.seek(0)
+            lines = myplane.writelines(lines)
+
+
+        with open(self.mtl_path, 'r+') as material:
+            lines = material.readlines()          
+            for index, line in enumerate(lines):
+                if 'map_Kd' in line:
+                    lines[index] = '  map_Kd ../../transformed/{}'.format(real_pad_path) 
+                
+            material.seek(0)
+            lines = material.writelines(lines) 
+
+
         parser_command = 'xacro ' + self.xacro_file + ' > ' + self.urdf_file
         os.system(parser_command)
 
