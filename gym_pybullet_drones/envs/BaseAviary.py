@@ -13,9 +13,7 @@ import pybullet as p
 import pybullet_data
 import gym
 from PIL import Image
-from scipy.spatial.transform import Rotation
-import matplotlib
-import matplotlib.pyplot as plt
+import itertools
 import glob
 import random
 class DroneModel(Enum):
@@ -162,6 +160,10 @@ class BaseAviary(gym.Env):
         self.VISION_ATTR = vision_attributes
         if self.VISION_ATTR:
             self.IMG_RES = np.array([84, 84])
+    
+            ##parameter for distortion
+            self.IMG_RES_org = [84, 84] #self.IMG_RES * 1.5
+
             self.IMG_FRAME_PER_SEC = 5
             self.IMG_CAPTURE_FREQ = int(self.SIM_FREQ/self.IMG_FRAME_PER_SEC)
             #TODO hardcode for now
@@ -204,8 +206,8 @@ class BaseAviary(gym.Env):
                                          physicsClientId=self.CLIENT
                                          )
             ret = p.getDebugVisualizerCamera(physicsClientId=self.CLIENT)
-            print("viewMatrix", ret[2])
-            print("projectionMatrix", ret[3])
+            # print("viewMatrix", ret[2])
+            # print("projectionMatrix", ret[3])
             if self.USER_DEBUG:
                 #### Add input sliders to the GUI ##########################
                 self.SLIDERS = -1*np.ones(4)
@@ -257,6 +259,13 @@ class BaseAviary(gym.Env):
         #### Create action and observation spaces ##################
         self.action_space = self._actionSpace()
         self.observation_space = self._observationSpace()
+
+        ############################################################        
+        #### Image distortion#######################################
+        ############################################################
+        self.distortion = False
+        self.distorted_points, self.image_points = self._initialize_image_distortion()
+        
         #### Housekeeping ##########################################
         self._housekeeping()
         #### Update and store the drones kinematic information #####
@@ -270,48 +279,65 @@ class BaseAviary(gym.Env):
             self.gv_poss_list = []
             self.uav_poss_list = []
     ################################################################################
+    ################################################################################
 
-    # def _initialize_ground_vehicle(self):
-    #     """ Initializes the vehicle model """
-    #     #### Desired velocity ######################################
-    #     self.gv_velocity = 18 - 6*np.random.rand()
-    #     #### The wheel bar joints ##################################
-    #     self.gv_joint = [1, 4]
-    #     #### The helipad circle link id  ###########################
-    #     self.gv_circleLink = 9
-    #     #### Max force to reach the desired velocity ###############
-    #     self.gv_force_limit = 600
+    def _initialize_image_distortion(self):
+        width = self.IMG_RES[1]
+        height = self.IMG_RES[0]
 
-    #     #### Path to the actual urdf file ##########################
-    #     self.xacro_file = "/home/user/landing/g_vehicle/car_v2.urdf"
-    #     #### Path for the to be parsed file ########################
-    #     self.urdf_file = "/home/user/landing/g_vehicle/parsed.urdf"
-
-    #     parser_command = 'xacro ' + self.xacro_file + ' > ' + self.urdf_file
-    #     os.system(parser_command)
-
-    #     self._load_ground_vehicle()
+        fx = 174.753059*width/324
+        fy = 174.753059*height/324
         
-    #     return
-    
-    # def _load_ground_vehicle(self):
-    #     """ Loads the vehicle model at every reset """
-    #     self.vehicleId = p.loadURDF(self.urdf_file, basePosition = [0.0,0.0,0], physicsClientId=self.CLIENT)
-    #     p.setJointMotorControl2(bodyUniqueId=self.vehicleId, 
-    #                             jointIndex=self.gv_joint[0], 
-    #                             controlMode=p.VELOCITY_CONTROL, 
-    #                             targetVelocity=self.gv_velocity, 
-    #                             force=self.gv_force_limit,
-    #                             physicsClientId=self.CLIENT)
+        cx = self.IMG_RES_org[1]/2#width/2
+        cy = self.IMG_RES_org[0]/2#height/2
+        k1 = -0.159928
+        k2 = 0.039955
+        k3 = 0
+        p1 = 0
+        p2 = 0
         
-    #     p.setJointMotorControl2(bodyUniqueId=self.vehicleId, 
-    #                             jointIndex=self.gv_joint[1], 
-    #                             controlMode=p.VELOCITY_CONTROL, 
-    #                             targetVelocity=self.gv_velocity, 
-    #                             force=self.gv_force_limit,
-    #                             physicsClientId=self.CLIENT)
-    # 
-    #     return
+
+        f = np.array([fy, fx])
+        c = np.array([cy, cx])
+
+        image_points = np.array(
+            tuple(
+                itertools.product(
+                    range(self.IMG_RES_org[0]), range(self.IMG_RES_org[1])
+                )
+            )
+        )
+        
+        norm_points = (image_points - c) / f
+        norm_points_square = norm_points ** 2
+        norm_points_xy = norm_points.prod(axis=1)
+
+        r2 = np.sum(norm_points_square, axis=1)
+        icdist = 1 / (1 - ((k3 * r2 + k2) * r2 + k1) * r2)
+
+        p = np.array([[p2, p1]])
+
+        r2_plus_2_point_sq = r2[:, None] + 2 * norm_points_square
+        delta = 2 * p * norm_points_xy[:, None] + p[::-1] * r2_plus_2_point_sq
+
+        distorted_points = (norm_points + delta) * icdist[:, None]
+
+        distorted_points = distorted_points * f + c
+
+        distorted_points = distorted_points.round().astype(int)
+
+        in_image_idx = np.all(
+            np.logical_and(
+                (0, 0) <= distorted_points,
+                distorted_points < (self.IMG_RES_org[0], self.IMG_RES_org[1]),
+            ),
+            axis=1,
+        )
+        
+        distorted_points = distorted_points[in_image_idx]
+        image_points = image_points[in_image_idx]
+
+        return distorted_points, image_points
     
     def _get_vehicle_position(self):
         """ Returns the helipad center position and orientation """
@@ -331,6 +357,7 @@ class BaseAviary(gym.Env):
         self.urdf_file = "/home/user/landing/g_vehicle/parsed.urdf"
         #### Path to the plane URDF file ###########################
         self.plane_path = '/home/user/miniconda3/envs/drqv2/lib/python3.8/site-packages/pybullet_data/plane.urdf'
+        # self.plane_path = '/home/user/miniconda3/lib/python3.7/site-packages/pybullet_data/plane.urdf'
         #### Path to the dtd file ###########################
         dtd_path = '/root/gym-pybullet-drones/gym_pybullet_drones/envs/single_agent_rl/dtd'
         #### Path to the object mtl file ###########################
@@ -373,7 +400,8 @@ class BaseAviary(gym.Env):
             lines = material.readlines()          
             for index, line in enumerate(lines):
                 if 'map_Kd' in line:
-                    lines[index] = '  map_Kd ../../transformed/{}'.format(real_pad_path) 
+                    # lines[index] = '  map_Kd ../transformed/{}'.format(str(real_pad_path).split('.'[0])) 
+                    lines[index] = '  map_Kd ../transformed/{}'.format(real_pad_path) 
                 
             material.seek(0)
             lines = material.writelines(lines) 
@@ -400,7 +428,7 @@ class BaseAviary(gym.Env):
         #### The wheel bar joints ##################################
         self.gv_joint = [1, 4]
         #### The helipad circle link id  ###########################
-        self.gv_circleLink = 9
+        self.gv_circleLink = 7
         yaw = np.pi/12 * random.random()
         self.vehicleId = p.loadURDF(self.urdf_file, basePosition = self.gv_pos, physicsClientId=self.CLIENT, baseOrientation = [0,0,np.sin(yaw/2),np.cos(yaw/2)])
         p.setJointMotorControl2(bodyUniqueId=self.vehicleId, 
@@ -607,6 +635,16 @@ class BaseAviary(gym.Env):
             info = self._computeInfo()
             #### Advance the step counter ##############################
             #self.step_counter = self.step_counter + (1 * self.AGGR_PHY_STEPS)
+
+        if self.distortion:
+            rgb = self._getDroneImages(0)[0]
+            # if self.distortion:
+            #     distorted_img = np.zeros_like(rgb)
+            #     distorted_img[tuple(self.distorted_points.T)] = rgb[tuple(self.image_points.T)]
+            #     distorted_img = distorted_img[8:72,8:72,:]
+            path = "/home/user/landing/landing_rl/images/"
+            self._exportImage(ImageType.RGB,self.distorted_img, path)        
+
         return obs, reward, done, info
     
     ################################################################################
@@ -711,7 +749,7 @@ class BaseAviary(gym.Env):
         #random initial position
         self.INIT_XYZS_random = (-3+(6*np.random.rand(*self.INIT_XYZS.shape))) + self.INIT_XYZS
         #random inital velocity
-        #self.INIT_XYZS_random = self.INIT_XYZS #-4
+        # self.INIT_XYZS_random = self.INIT_XYZS
         #### Initialize/reset counters and zero-valued variables ###
         self.RESET_TIME = time.time()
         self.step_counter = 0
@@ -855,33 +893,68 @@ class BaseAviary(gym.Env):
         #### Set target point, camera view and projection matrices #
         target = np.dot(rot_mat, np.array([0, 0, -1000])) + np.array(self.pos[nth_drone, :])
 
-        DRONE_CAM_VIEW = p.computeViewMatrix(cameraEyePosition=self.pos[nth_drone, :] - np.array([0, 0, 0.0]) +np.array([0, 0, self.L]),
+        #### Image distortion setting ####
+        if self.distortion:
+            fov = 108
+            img_res = self.IMG_RES_org
+        else:
+            fov = 85.7
+            img_res = self.IMG_RES
+
+
+        DRONE_CAM_VIEW = p.computeViewMatrix(cameraEyePosition=self.pos[nth_drone, :] - np.array([0, 0, 0.15]) +np.array([0, 0, self.L]),
                                              cameraTargetPosition=target,
                                              cameraUpVector=[1, 0, 0],
                                              physicsClientId=self.CLIENT
                                              )
-        DRONE_CAM_PRO =  p.computeProjectionMatrixFOV(fov=60.0,
+        DRONE_CAM_PRO =  p.computeProjectionMatrixFOV(fov=fov,
                                                       aspect=1.0,
                                                       nearVal=self.L,
                                                       farVal=1000.0
                                                       )
         SEG_FLAG = p.ER_SEGMENTATION_MASK_OBJECT_AND_LINKINDEX if segmentation else p.ER_NO_SEGMENTATION_MASK
-        [w, h, rgb, dep, seg] = p.getCameraImage(width=self.IMG_RES[0],
-                                                 height=self.IMG_RES[1],
+
+        [w, h, rgb, dep, seg] = p.getCameraImage(width=img_res[0],
+                                                 height=img_res[1],
                                                  shadow=0,
                                                  viewMatrix=DRONE_CAM_VIEW,
                                                  projectionMatrix=DRONE_CAM_PRO,
                                                  flags=SEG_FLAG,
                                                  physicsClientId=self.CLIENT
                                                  )
+
+
+        # DRONE_CAM_PRO =  p.computeProjectionMatrixFOV(fov=60.0,
+        #                                               aspect=1.0,
+        #                                               nearVal=self.L,
+        #                                               farVal=1000.0
+        #                                               )
+        # SEG_FLAG = p.ER_SEGMENTATION_MASK_OBJECT_AND_LINKINDEX if segmentation else p.ER_NO_SEGMENTATION_MASK
+
+        # [w, h, rgb, dep, seg] = p.getCameraImage(width=self.IMG_RES[0],
+        #                                          height=self.IMG_RES[1],
+        #                                          shadow=0,
+        #                                          viewMatrix=DRONE_CAM_VIEW,
+        #                                          projectionMatrix=DRONE_CAM_PRO,
+        #                                          flags=SEG_FLAG,
+        #                                          physicsClientId=self.CLIENT
+        #                                          )
         #add padding
         #print(rgb.shape)
         #rgb = np.pad(rgb, ((8,8),(0,0),(0,0)), 'constant')                                
         #rgb = np.reshape(rgb, (h, w, 4))
         #print(rgb.shape)
+
+        if self.distortion:
+            self.distorted_img = np.zeros_like(rgb)
+            self.distorted_img[tuple(self.distorted_points.T)] = rgb[tuple(self.image_points.T)]
+            # self.distorted_img = self.distorted_img[8:72,8:72,:]
+            rgb = self.distorted_img
+
         rgb = np.moveaxis(rgb, -1, 0)
         dep = np.reshape(dep, (h, w))
         seg = np.reshape(seg, (h, w))
+        
         #im = Image.fromarray(rgb.transpose(1, 2, 0), 'RGBA')
         #im.save("your_file_2.png")
         #print('calling correct image?')
