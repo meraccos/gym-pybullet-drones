@@ -352,7 +352,7 @@ class BaseAviary(gym.Env):
 
         #### Initialize the GV parameters ##########################
         #### Path to GV URDF file ##################################
-        self.xacro_file = "/home/user/landing/g_vehicle/car_v4.urdf"  # car_v2: sim, car_v4: real landing pad images
+        self.xacro_file = "/home/user/landing/drqv2_landing/g_vehicle/car_v4.urdf"  # car_v2: sim, car_v4: real landing pad images
         #### Path to the file to be parsed #########################
         self.urdf_file = "/home/user/landing/g_vehicle/parsed.urdf"
         #### Path to the plane URDF file ###########################
@@ -361,11 +361,11 @@ class BaseAviary(gym.Env):
         #### Path to the dtd file ###########################
         dtd_path = '/root/gym-pybullet-drones/gym_pybullet_drones/envs/single_agent_rl/dtd'
         #### Path to the object mtl file ###########################
-        self.mtl_path = '/home/user/landing/g_vehicle/base.mtl'
+        self.mtl_path = '/home/user/landing/drqv2_landing/g_vehicle/base.mtl'
         #### Path to real landing pad images #######################
         real_pad_path = random.choice(os.listdir("/home/user/landing/transformed"))
 
-        base_color =  ['0.0', '1.0', '0.0', '1.0']
+        base_color =  ['0.973', '0.973', '0.973', '1.0']
         circle_color =  ['1.0', '0.0', '0.0', '1.0']
         plane_color =  ['1.0', '1.0', '1.0', '1.0']
         grid_scale = ['1', '1']
@@ -421,7 +421,7 @@ class BaseAviary(gym.Env):
         #### Desired GV init position ##############################
         self.gv_pos = [0.2,0.2,0]
         #### Desired velocity ######################################
-        self.gv_velocity = 18 - 6*np.random.rand()
+        self.gv_velocity = 18 - 18*np.random.rand()
         # self.gv_velocity = 1
         #### Max force to reach the desired velocity ###############
         self.gv_force_limit = 600
@@ -635,6 +635,8 @@ class BaseAviary(gym.Env):
             info = self._computeInfo()
             #### Advance the step counter ##############################
             #self.step_counter = self.step_counter + (1 * self.AGGR_PHY_STEPS)
+            if done == True:
+                break
 
         if self.distortion:
             rgb = self._getDroneImages(0)[0]
@@ -747,9 +749,9 @@ class BaseAviary(gym.Env):
 
         """
         #random initial position
-        self.INIT_XYZS_random = (-3+(6*np.random.rand(*self.INIT_XYZS.shape))) + self.INIT_XYZS
+        self.INIT_XYZS_random = (-1+(2*np.random.rand(*self.INIT_XYZS.shape))) + self.INIT_XYZS
         #random inital velocity
-        # self.INIT_XYZS_random = self.INIT_XYZS
+        #self.INIT_XYZS_random = self.INIT_XYZS
         #### Initialize/reset counters and zero-valued variables ###
         self.RESET_TIME = time.time()
         self.step_counter = 0
