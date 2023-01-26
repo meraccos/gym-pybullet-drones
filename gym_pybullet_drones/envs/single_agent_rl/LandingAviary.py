@@ -171,6 +171,7 @@ class LandingAviary(BaseSingleAgentAviary):
         alpha = 30
         UGV_pos = np.array(self._get_vehicle_position()[0])
         UGV_vel = self._get_vehicle_velocity()
+        #print(UGV_vel)
         drone_state = self._getDroneStateVector(0)
         drone_position = drone_state[0:3]
         drone_velocity = drone_state[10:13]

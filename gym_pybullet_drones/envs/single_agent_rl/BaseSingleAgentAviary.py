@@ -86,7 +86,7 @@ class BaseSingleAgentAviary(BaseAviary):
         dynamics_attributes = True if act in [ActionType.DYN, ActionType.ONE_D_DYN] else False
         self.OBS_TYPE = obs
         self.ACT_TYPE = act
-        self.EPISODE_LEN_SEC = 30
+        self.EPISODE_LEN_SEC = 45
         #### Create integrated controllers #########################
         if act in [ActionType.PID, ActionType.VEL, ActionType.TUN, ActionType.ONE_D_PID]:
             os.environ['KMP_DUPLICATE_LIB_OK']='True'
@@ -128,7 +128,7 @@ class BaseSingleAgentAviary(BaseAviary):
         #Z needs its own speed limit
         if act == ActionType.VEL:
             #self.SPEED_LIMIT = np.array([0.17 * self.MAX_SPEED_KMH * (1000/3600), 0.17 * self.MAX_SPEED_KMH * (1000/3600), 0.06 * self.MAX_SPEED_KMH * (1000/3600)])
-            self.SPEED_LIMIT = np.array([0.35 * self.MAX_SPEED_KMH * (1000/3600), 0.35 * self.MAX_SPEED_KMH * (1000/3600), 0.12 * self.MAX_SPEED_KMH * (1000/3600)])
+            self.SPEED_LIMIT = np.array([0.75 * self.MAX_SPEED_KMH * (1000/3600), 0.75 * self.MAX_SPEED_KMH * (1000/3600), 0.12 * self.MAX_SPEED_KMH * (1000/3600)])
         #### Try _trajectoryTrackingRPMs exists IFF ActionType.TUN #
         if act == ActionType.TUN and not (hasattr(self.__class__, '_trajectoryTrackingRPMs') and callable(getattr(self.__class__, '_trajectoryTrackingRPMs'))):
                 print("[ERROR] in BaseSingleAgentAviary.__init__(), ActionType.TUN requires an implementation of _trajectoryTrackingRPMs in the instantiated subclass")
@@ -352,6 +352,8 @@ class BaseSingleAgentAviary(BaseAviary):
 
         """
         if self.OBS_TYPE == ObservationType.RGB:
+            #print(self.IMG_CAPTURE_FREQ)
+            #exit()
             if self.step_counter%self.IMG_CAPTURE_FREQ == 0: 
                 
                 self.rgb, self.dep[0], self.seg[0] = self._getDroneImages(0,
