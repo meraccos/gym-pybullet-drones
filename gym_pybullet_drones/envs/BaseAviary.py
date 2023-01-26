@@ -352,7 +352,7 @@ class BaseAviary(gym.Env):
 
         #### Initialize the GV parameters ##########################
         #### Path to GV URDF file ##################################
-        self.xacro_file = "/home/user/landing/drqv2_landing/g_vehicle/car_v4.urdf"  # car_v2: sim, car_v4: real landing pad images
+        self.xacro_file = "/home/user/landing/g_vehicle/car_v4.urdf"  # car_v2: sim, car_v4: real landing pad images
         #### Path to the file to be parsed #########################
         self.urdf_file = "/home/user/landing/g_vehicle/parsed.urdf"
         #### Path to the plane URDF file ###########################
@@ -361,7 +361,7 @@ class BaseAviary(gym.Env):
         #### Path to the dtd file ###########################
         dtd_path = '/root/gym-pybullet-drones/gym_pybullet_drones/envs/single_agent_rl/dtd'
         #### Path to the object mtl file ###########################
-        self.mtl_path = '/home/user/landing/drqv2_landing/g_vehicle/base.mtl'
+        self.mtl_path = '/home/user/landing/g_vehicle/base.mtl'
         #### Path to real landing pad images #######################
         real_pad_path = random.choice(os.listdir("/home/user/landing/transformed"))
 
@@ -429,7 +429,7 @@ class BaseAviary(gym.Env):
         self.gv_joint = [1, 4]
         #### The helipad circle link id  ###########################
         self.gv_circleLink = 7
-        yaw = np.pi/12 * random.random()
+        yaw = np.pi/3 * random.random() - np.pi/6
         self.vehicleId = p.loadURDF(self.urdf_file, basePosition = self.gv_pos, physicsClientId=self.CLIENT, baseOrientation = [0,0,np.sin(yaw/2),np.cos(yaw/2)])
         p.setJointMotorControl2(bodyUniqueId=self.vehicleId, 
                                 jointIndex=self.gv_joint[0], 
