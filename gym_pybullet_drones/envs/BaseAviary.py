@@ -278,6 +278,7 @@ class BaseAviary(gym.Env):
         if self.RECORD_CHASE:
             self.gv_poss_list = []
             self.uav_poss_list = []
+        self.urdf_necessary_not_sure_why_counter = 0
     ################################################################################
     ################################################################################
 
@@ -341,20 +342,29 @@ class BaseAviary(gym.Env):
     
     def _get_vehicle_position(self):
         """ Returns the helipad center position and orientation """
-        return p.getLinkState(self.vehicleId, self.gv_circleLink, physicsClientId=self.CLIENT)[0:2]
+        
+        #return ((0.10045686084702735, 0.12811826793718173, 0.08182789495970491), (-3.1815767102318115e-05, 0.00013119084611442516, -0.05788216504518402, 0.0))#p.getLinkState(self.vehicleId, self.gv_circleLink, physicsClientId=self.CLIENT)[0:2] #(0.10045686084702735, 0.12811826793718173, 0.08182789495970491) p.getLinkState(self.vehicleId, self.gv_circleLink, physicsClientId=self.CLIENT)[0:2]
+        return p.getLinkState(self.vehicleId, self.gv_circleLink, physicsClientId=self.CLIENT)[0:2] #(0.10045686084702735, 0.12811826793718173, 0.08182789495970491) p.getLinkState(self.vehicleId, self.gv_circleLink, physicsClientId=self.CLIENT)[0:2]
+
 
     def _get_vehicle_velocity(self):
         """ Returns the linear and angular velocity of the vehicle """
+        #return ((0.10045686084702735, 0.12811826793718173, 0.08182789495970491), (-3.1815767102318115e-05, 0.00013119084611442516, -0.05788216504518402)) #p.getBaseVelocity(self.vehicleId,physicsClientId=self.CLIENT)
         return p.getBaseVelocity(self.vehicleId,physicsClientId=self.CLIENT)
     
     def _randomizer(self, init_seed = 1):
         #random.seed(2)
-
         #### Initialize the GV parameters ##########################
         #### Path to GV URDF file ##################################
-        self.xacro_file = "/home/user/landing/g_vehicle/car_v4.urdf"  # car_v2: sim, car_v4: real landing pad images
-        #### Path to the file to be parsed #########################
-        self.urdf_file = "/home/user/landing/g_vehicle/parsed.urdf"
+        flag = random.random()
+        if flag < 0.5:
+            self.xacro_file = "/home/user/landing/g_vehicle/car_v2.urdf" 
+            self.urdf_necessary_not_sure_why_counter = (1+self.urdf_necessary_not_sure_why_counter) % 100
+            self.urdf_file = "/home/user/landing/g_vehicle/parsed_{}.urdf".format(self.urdf_necessary_not_sure_why_counter)
+        else:
+            self.xacro_file = "/home/user/landing/g_vehicle/car_v4.urdf"  # car_v2: sim, car_v4: real landing pad images
+            #### Path to the file to be parsed #########################
+            self.urdf_file = "/home/user/landing/g_vehicle/parsed.urdf"
         #### Path to the plane URDF file ###########################
         self.plane_path = '/home/user/miniconda3/envs/drqv2/lib/python3.8/site-packages/pybullet_data/plane.urdf'
         # self.plane_path = '/home/user/miniconda3/lib/python3.7/site-packages/pybullet_data/plane.urdf'
@@ -365,8 +375,8 @@ class BaseAviary(gym.Env):
         #### Path to real landing pad images #######################
         real_pad_path = random.choice(os.listdir("/home/user/landing/transformed"))
 
-        base_color =  ['0.973', '0.973', '0.973', '1.0']
-        circle_color =  ['1.0', '0.0', '0.0', '1.0']
+        base_color = [str(round(random.uniform(0,1), 1)), str(round(random.uniform(0,1), 1)), str(round(random.uniform(0,1), 1)), 1.0] #['0.973', '0.973', '0.973', '1.0']
+        circle_color = [str(round(random.uniform(0,1), 1)), str(round(random.uniform(0,1), 1)), str(round(random.uniform(0,1), 1)), 1.0]
         plane_color =  ['1.0', '1.0', '1.0', '1.0']
         grid_scale = ['1', '1']
         random_texture = True
@@ -412,7 +422,7 @@ class BaseAviary(gym.Env):
 
         if random_texture:
             texture_paths = glob.glob(os.path.join(dtd_path, '**', '*.jpg'), recursive=True)
-            random_texture_path = texture_paths[random.randint(0, 40)]
+            random_texture_path = texture_paths[random.randint(0, 100)]
             #random_texture_path ='/root/gym-pybullet-drones/gym_pybullet_drones/envs/single_agent_rl/dtd/asp_test.jpeg' 
             textureId = p.loadTexture(random_texture_path, physicsClientId=self.CLIENT)
             p.changeVisualShape(self.PLANE_ID, -1, textureUniqueId=textureId, physicsClientId=self.CLIENT)
@@ -644,9 +654,10 @@ class BaseAviary(gym.Env):
             #     distorted_img = np.zeros_like(rgb)
             #     distorted_img[tuple(self.distorted_points.T)] = rgb[tuple(self.image_points.T)]
             #     distorted_img = distorted_img[8:72,8:72,:]
-            path = "/home/user/landing/landing_rl/images/"
+            path = "/home/user/landing/images/"
             self._exportImage(ImageType.RGB,self.distorted_img, path)        
-
+        #obs = obs + random.randint(-20,20)
+        obs = np.clip(obs,0, 255)
         return obs, reward, done, info
     
     ################################################################################
