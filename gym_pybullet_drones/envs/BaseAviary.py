@@ -16,6 +16,8 @@ from PIL import Image
 import itertools
 import glob
 import random
+import cv2
+import matplotlib
 class DroneModel(Enum):
     """Drone models enumeration class."""
 
@@ -357,7 +359,7 @@ class BaseAviary(gym.Env):
         #### Initialize the GV parameters ##########################
         #### Path to GV URDF file ##################################
         flag = random.random()
-        if flag < 0.5:
+        if flag < 1:
             self.xacro_file = "/home/user/landing/g_vehicle/car_v2.urdf" 
             self.urdf_necessary_not_sure_why_counter = (1+self.urdf_necessary_not_sure_why_counter) % 100
             self.urdf_file = "/home/user/landing/g_vehicle/parsed_{}.urdf".format(self.urdf_necessary_not_sure_why_counter)
@@ -963,7 +965,12 @@ class BaseAviary(gym.Env):
             self.distorted_img[tuple(self.distorted_points.T)] = rgb[tuple(self.image_points.T)]
             # self.distorted_img = self.distorted_img[8:72,8:72,:]
             rgb = self.distorted_img
-
+        #rgb = rgb[:,40:280,:]
+        #rgb = cv2.resize(rgb, (84,84), interpolation = cv2.INTER_LANCZOS4)
+        hsv = matplotlib.colors.rgb_to_hsv(rgb[:,:,0:3]/255)
+        hsv[:,:,2] = hsv[:,:,2] *random.uniform(0.1,1.5)
+        hsv = np.clip(hsv,0,1)
+        rgb = (matplotlib.colors.hsv_to_rgb(hsv)*255).astype(int)
         rgb = np.moveaxis(rgb, -1, 0)
         dep = np.reshape(dep, (h, w))
         seg = np.reshape(seg, (h, w))
@@ -971,6 +978,7 @@ class BaseAviary(gym.Env):
         #im = Image.fromarray(rgb.transpose(1, 2, 0), 'RGBA')
         #im.save("your_file_2.png")
         #print('calling correct image?')
+        #rgb = rgb[:,:,0:3]
         return rgb, dep, seg
 
     ################################################################################
