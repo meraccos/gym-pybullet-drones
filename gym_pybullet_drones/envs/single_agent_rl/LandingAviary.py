@@ -213,10 +213,15 @@ class LandingAviary(BaseSingleAgentAviary):
         #if combined_reward < 0:
         #    print(drone_velocity)
         #    exit()
-        if drone_position[2] >= 0.275 and p.getContactPoints(bodyA=1, physicsClientId=self.CLIENT) != ():
+        if drone_position[2] >= 0.268 and p.getContactPoints(bodyA=1, physicsClientId=self.CLIENT) != () and abs(distance_xy) <= 0.2:
             print('landed!')
             combined_reward =  140 + combined_reward
-        elif drone_position[2] < 0.275 and p.getContactPoints(bodyA=1, physicsClientId=self.CLIENT) != ():
+
+        elif drone_position[2] >= 0.268 and p.getContactPoints(bodyA=1, physicsClientId=self.CLIENT) != () and abs(distance_xy) > 0.2:
+            print('crashed!')
+            combined_reward =  -1
+        elif drone_position[2] < 0.268 and p.getContactPoints(bodyA=1, physicsClientId=self.CLIENT) != ():
+
             print('crashed!')
             combined_reward = -1 #normalized_distance_xy * 10 #0#5*distance_xy + combined_reward
         else:

@@ -888,8 +888,7 @@ class BaseAviary(gym.Env):
         ----------
         nth_drone : int
             The ordinal number/position of the desired drone in list self.DRONE_IDS.
-
-        Returns
+ra
         -------
         ndarray 
             (20,)-shaped array of floats containing the state vector of the n-th drone.
@@ -998,7 +997,7 @@ class BaseAviary(gym.Env):
         #self.random_brightness = random.uniform(0.1,1.5)
         hsv = matplotlib.colors.rgb_to_hsv(rgb[:,:,0:3]/255)
         hsv[:,:,2] = hsv[:,:,2] *self.random_brightness
-        for i in range(0,4):
+        for i in range(0,3):
             row_range = []
             row_range.append(random.randint(0,73))
             upper_limit = row_range[0]+20 if row_range[0]+20 <83 else 83
