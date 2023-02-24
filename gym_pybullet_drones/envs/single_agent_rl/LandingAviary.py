@@ -165,12 +165,14 @@ class LandingAviary(BaseSingleAgentAviary):
             The reward.
         """
         lambda_error = 1/3
-        desired_z_velocity = -0.5
+        desired_z_velocity = -0.25
         #eventually it will become speed of ground vehicle
         desired_xy_velocity = 0.0
         alpha = 30
         UGV_pos = np.array(self._get_vehicle_position()[0])
         UGV_vel = self._get_vehicle_velocity()
+        #print('ugv velocity')
+        #print(UGV_vel)
         drone_state = self._getDroneStateVector(0)
         drone_position = drone_state[0:3]
         drone_velocity = drone_state[10:13]

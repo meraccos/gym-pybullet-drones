@@ -18,6 +18,7 @@ import glob
 import random
 import cv2
 import matplotlib
+import matplotlib.pyplot as plt
 class DroneModel(Enum):
     """Drone models enumeration class."""
 
@@ -222,6 +223,9 @@ class BaseAviary(gym.Env):
             #### Uncomment the following line to use EGL Render Plugin #
             #### Instead of TinyRender (CPU-based) in PYB's Direct mode
             # if platform == "linux": p.setAdditionalSearchPath(pybullet_data.getDataPath()); plugin = p.loadPlugin(egl.get_filename(), "_eglRendererPlugin"); print("plugin=", plugin)
+            if self.RECORD_CHASE:
+                self.FRAME_PER_SEC = 24
+                self.CAPTURE_FREQ = int(self.SIM_FREQ/self.FRAME_PER_SEC)
             if self.RECORD:
                 #### Set the camera parameters to save frames in DIRECT mode
                 self.VID_WIDTH=int(640)
@@ -353,11 +357,25 @@ class BaseAviary(gym.Env):
         """ Returns the linear and angular velocity of the vehicle """
         #return ((0.10045686084702735, 0.12811826793718173, 0.08182789495970491), (-3.1815767102318115e-05, 0.00013119084611442516, -0.05788216504518402)) #p.getBaseVelocity(self.vehicleId,physicsClientId=self.CLIENT)
         return p.getBaseVelocity(self.vehicleId,physicsClientId=self.CLIENT)
+
+    def get_vehicle_position(self):
+        """ Returns the helipad center position and orientation """
+        
+        #return ((0.10045686084702735, 0.12811826793718173, 0.08182789495970491), (-3.1815767102318115e-05, 0.00013119084611442516, -0.05788216504518402, 0.0))#p.getLinkState(self.vehicleId, self.gv_circleLink, physicsClientId=self.CLIENT)[0:2] #(0.10045686084702735, 0.12811826793718173, 0.08182789495970491) p.getLinkState(self.vehicleId, self.gv_circleLink, physicsClientId=self.CLIENT)[0:2]
+        return self._get_vehicle_position()#(0.10045686084702735, 0.12811826793718173, 0.08182789495970491) p.getLinkState(self.vehicleId, self.gv_circleLink, physicsClientId=self.CLIENT)[0:2]
+
+
+    def get_vehicle_velocity(self):
+        """ Returns the linear and angular velocity of the vehicle """
+        #return ((0.10045686084702735, 0.12811826793718173, 0.08182789495970491), (-3.1815767102318115e-05, 0.00013119084611442516, -0.05788216504518402)) #p.getBaseVelocity(self.vehicleId,physicsClientId=self.CLIENT)
+        return self._get_vehicle_velocity()
+    
     
     def _randomizer(self, init_seed = 1):
         #random.seed(2)
         #### Initialize the GV parameters ##########################
         #### Path to GV URDF file ##################################
+        self.random_brightness = random.uniform(0.1,1.5)
         flag = random.random()
         if flag < 1:
             self.xacro_file = "/home/user/landing/g_vehicle/car_v2.urdf" 
@@ -431,9 +449,10 @@ class BaseAviary(gym.Env):
 
         """ Loads the vehicle model at every reset """
         #### Desired GV init position ##############################
-        self.gv_pos = [0.2,0.2,0]
+        self.gv_pos = [0.0,0.0,0]
         #### Desired velocity ######################################
         self.gv_velocity = 18 - 18*np.random.rand()
+        #self.gv_velocity = 9 - 9*np.random.rand()
         # self.gv_velocity = 1
         #### Max force to reach the desired velocity ###############
         self.gv_force_limit = 600
@@ -441,7 +460,7 @@ class BaseAviary(gym.Env):
         self.gv_joint = [1, 4]
         #### The helipad circle link id  ###########################
         self.gv_circleLink = 7
-        yaw = np.pi/3 * random.random() - np.pi/6
+        yaw = 0#np.pi/3 * random.random() - np.pi/6
         self.vehicleId = p.loadURDF(self.urdf_file, basePosition = self.gv_pos, physicsClientId=self.CLIENT, baseOrientation = [0,0,np.sin(yaw/2),np.cos(yaw/2)])
         p.setJointMotorControl2(bodyUniqueId=self.vehicleId, 
                                 jointIndex=self.gv_joint[0], 
@@ -514,6 +533,9 @@ class BaseAviary(gym.Env):
             """
             #### Save PNG video frames if RECORD=True and GUI=False ####
             self.AGGR_PHY_STEPS = self.AGGR_PHY_STEPS_original + random.randint(-5,5)
+            #random.uniform(0.04,0.08)
+            self.SPEED_LIMIT = np.array([random.uniform(0.15,0.2) * self.MAX_SPEED_KMH * (1000/3600), random.uniform(0.15,0.2) * self.MAX_SPEED_KMH * (1000/3600), random.uniform(0.04,0.08) * self.MAX_SPEED_KMH * (1000/3600)])
+
             #print(self.AGGR_PHY_STEPS)
             if self.RECORD and not self.GUI and self.step_counter%self.CAPTURE_FREQ == 0:
                 [w, h, rgb, dep, seg] = p.getCameraImage(width=self.VID_WIDTH,
@@ -532,55 +554,6 @@ class BaseAviary(gym.Env):
                 # seg = ((seg-np.min(seg)) * 255 / (np.max(seg)-np.min(seg))).astype('uint8')
                 # (Image.fromarray(np.reshape(seg, (h, w)))).save(self.IMG_PATH+"frame_"+str(self.FRAME_NUM)+".png")
                 self.FRAME_NUM += 1
-            # if self.RECORD_CHASE and not self.GUI and self.step_counter%self.CAPTURE_FREQ == 0:
-            #     nth_drone = 0
-            #     gv_pos = np.array(self._get_vehicle_position()[0])
-            #     #### Set target point, camera view and projection matrices #
-            #     target = gv_pos + np.array([0.0,0,0])#np.dot(rot_mat, np.array([0, 0, -1000])) + np.array(self.pos[nth_drone, :]
-            #     DRONE_CAM_VIEW = p.computeViewMatrix(cameraEyePosition=self.pos[nth_drone, :] + np.array([0, 0, 0.75]) +np.array([0, 0, self.L]),
-            #                                         cameraTargetPosition=target,
-            #                                         cameraUpVector=[1, 0, 0],
-            #                                         physicsClientId=self.CLIENT
-            #                                         )
-            #     DRONE_CAM_PRO =  p.computeProjectionMatrixFOV(fov=60.0,
-            #                                                 aspect=1.0,
-            #                                                 nearVal=self.L,
-            #                                                 farVal=1000.0
-            #                                                 )
-            #     #SEG_FLAG = p.ER_SEGMENTATION_MASK_OBJECT_AND_LINKINDEX if segmentation else p.ER_NO_SEGMENTATION_MASK
-            #     SEG_FLAG = True
-            #     [w, h, rgb, dep, seg] = p.getCameraImage(width=882,
-            #                                             height=836,
-            #                                             shadow=1,
-            #                                             viewMatrix=DRONE_CAM_VIEW,
-            #                                             projectionMatrix=DRONE_CAM_PRO,
-            #                                             renderer=p.ER_TINY_RENDERER,
-            #                                             flags=p.ER_SEGMENTATION_MASK_OBJECT_AND_LINKINDEX,
-            #                                             physicsClientId=self.CLIENT
-            #                                             )
-            #     (Image.fromarray(np.reshape(rgb, (h, w, 4)), 'RGBA')).save(self.IMG_PATH_CHASE+"frame_"+str(self.FRAME_NUM)+".png")
-            #     #create matplotlib and record frames from that
-            #     fig = plt.figure()
-            #     ax = plt.axes(projection ='3d')
-            #     uav_pos = self.pos[0,:]
-            #     gv_pos = self.get_vehicle_position()[0]
-            #     self.gv_poss_list.append(gv_pos)
-            #     self.uav_poss_list.append(uav_pos.copy())
-            #     uav_poss = np.array(self.uav_poss_list)
-            #     gv_poss = np.array(self.gv_poss_list)
-            #     ax.plot3D(uav_poss[:,0], uav_poss[:,1], uav_poss[:,2], 'green', label = "UAS trajectory",linewidth=4.0)
-            #     ax.plot3D(gv_poss[:,0], gv_poss[:,1], gv_poss[:,2], 'red', label = "Landing platform trajectory",linewidth=4.0, linestyle = '--')
-            #     ax.set_xlabel('x-position (m)', labelpad=8)
-            #     # naming the y axis
-            #     ax.set_ylabel('y-position (m)', labelpad=8)
-            #     ax.set_zlabel('z-position (m)', labelpad=8)
-            #     ax.legend(fontsize = 14, loc='upper left')
-            #     ax.axes.set_xlim3d(left=-1, right=15) 
-            #     ax.axes.set_ylim3d(bottom=-4, top=4) 
-            #     ax.axes.set_zlim3d(bottom=-0, top=13)
-            #     graph_path = self.IMG_PATH_GRAPH+"frame_"+str(self.FRAME_NUM)+".png"
-            #     plt.savefig(graph_path, bbox_inches='tight', dpi=200)
-            #     plt.close()
             #### Read the GUI's input parameters #######################
             if self.GUI and self.USER_DEBUG:
                 current_input_switch = p.readUserDebugParameter(self.INPUT_SWITCH, physicsClientId=self.CLIENT)
@@ -638,6 +611,58 @@ class BaseAviary(gym.Env):
                 #### Save the last applied action (e.g. to compute drag) ###
                 self.last_clipped_action = clipped_action
                 obs = self._computeObs()
+
+                ##### record video #######
+                if self.RECORD_CHASE and not self.GUI and self.step_counter%self.CAPTURE_FREQ == 0:
+                    nth_drone = 0
+                    gv_pos = np.array(self._get_vehicle_position()[0])
+                    #### Set target point, camera view and projection matrices #
+                    target = gv_pos + np.array([0.0,0,0])#np.dot(rot_mat, np.array([0, 0, -1000])) + np.array(self.pos[nth_drone, :]
+                    DRONE_CAM_VIEW = p.computeViewMatrix(cameraEyePosition=self.pos[nth_drone, :] + np.array([0, 0, 0.75]) +np.array([0, 0, self.L]),
+                                                        cameraTargetPosition=target,
+                                                        cameraUpVector=[1, 0, 0],
+                                                        physicsClientId=self.CLIENT
+                                                        )
+                    DRONE_CAM_PRO =  p.computeProjectionMatrixFOV(fov=60.0,
+                                                                aspect=1.0,
+                                                                nearVal=self.L,
+                                                                farVal=1000.0
+                                                                )
+                    #SEG_FLAG = p.ER_SEGMENTATION_MASK_OBJECT_AND_LINKINDEX if segmentation else p.ER_NO_SEGMENTATION_MASK
+                    SEG_FLAG = True
+                    [w, h, rgb, dep, seg] = p.getCameraImage(width=1280,
+                                                            height=720,
+                                                            shadow=1,
+                                                            viewMatrix=DRONE_CAM_VIEW,
+                                                            projectionMatrix=DRONE_CAM_PRO,
+                                                            renderer=p.ER_TINY_RENDERER,
+                                                            flags=p.ER_SEGMENTATION_MASK_OBJECT_AND_LINKINDEX,
+                                                            physicsClientId=self.CLIENT
+                                                            )
+                    (Image.fromarray(np.reshape(rgb, (h, w, 4)), 'RGBA')).save(self.IMG_PATH_CHASE+"frame_"+str(self.FRAME_NUM)+".png")
+                    #create matplotlib and record frames from that
+                    fig = plt.figure()
+                    ax = plt.axes(projection ='3d')
+                    uav_pos = self.pos[0,:]
+                    gv_pos = self.get_vehicle_position()[0]
+                    self.gv_poss_list.append(gv_pos)
+                    self.uav_poss_list.append(uav_pos.copy())
+                    uav_poss = np.array(self.uav_poss_list)
+                    gv_poss = np.array(self.gv_poss_list)
+                    ax.plot3D(uav_poss[:,0], uav_poss[:,1], uav_poss[:,2], 'green', label = "UAS trajectory",linewidth=4.0)
+                    ax.plot3D(gv_poss[:,0], gv_poss[:,1], gv_poss[:,2], 'red', label = "Landing platform trajectory",linewidth=4.0, linestyle = '--')
+                    ax.set_xlabel('x-position (m)', labelpad=8)
+                    # naming the y axis
+                    ax.set_ylabel('y-position (m)', labelpad=8)
+                    ax.set_zlabel('z-position (m)', labelpad=8)
+                    ax.legend(fontsize = 14, loc='upper left')
+                    ax.axes.set_xlim3d(left=-1, right=15) 
+                    ax.axes.set_ylim3d(bottom=-4, top=4) 
+                    ax.axes.set_zlim3d(bottom=-0, top=13)
+                    graph_path = self.IMG_PATH_GRAPH+"frame_"+str(self.FRAME_NUM)+".png"
+                    plt.savefig(graph_path, bbox_inches='tight', dpi=200)
+                    plt.close()
+                    self.FRAME_NUM += 1
                 self.step_counter += 1
             #### Update and store the drones kinematic information #####
             self._updateAndStoreKinematicInformation()
@@ -761,13 +786,16 @@ class BaseAviary(gym.Env):
         in the `reset()` function.
 
         """
+
         #random initial position
         self.INIT_XYZS_random = (-1+(2*np.random.rand(*self.INIT_XYZS.shape))) + self.INIT_XYZS
+        #self.INIT_XYZS_random = -0.25+((0.5*np.random.rand(*self.INIT_XYZS.shape))) + self.INIT_XYZS
         #random inital velocity
         #self.INIT_XYZS_random = self.INIT_XYZS
         #### Initialize/reset counters and zero-valued variables ###
         self.RESET_TIME = time.time()
         self.step_counter = 0
+        self.FRAME_NUM = 0
         self.first_render_call = True
         self.X_AX = -1*np.ones(self.NUM_DRONES)
         self.Y_AX = -1*np.ones(self.NUM_DRONES)
@@ -913,11 +941,11 @@ class BaseAviary(gym.Env):
             fov = 108
             img_res = self.IMG_RES_org
         else:
-            fov = 85.7
+            fov = 108
             img_res = self.IMG_RES
 
 
-        DRONE_CAM_VIEW = p.computeViewMatrix(cameraEyePosition=self.pos[nth_drone, :] - np.array([0, 0, 0.15]) +np.array([0, 0, self.L]),
+        DRONE_CAM_VIEW = p.computeViewMatrix(cameraEyePosition=self.pos[nth_drone, :] - np.array([0.0, 0, 0.1]) +np.array([0, 0, self.L]),
                                              cameraTargetPosition=target,
                                              cameraUpVector=[1, 0, 0],
                                              physicsClientId=self.CLIENT
@@ -967,10 +995,40 @@ class BaseAviary(gym.Env):
             rgb = self.distorted_img
         #rgb = rgb[:,40:280,:]
         #rgb = cv2.resize(rgb, (84,84), interpolation = cv2.INTER_LANCZOS4)
+        #self.random_brightness = random.uniform(0.1,1.5)
         hsv = matplotlib.colors.rgb_to_hsv(rgb[:,:,0:3]/255)
-        hsv[:,:,2] = hsv[:,:,2] *random.uniform(0.1,1.5)
+        hsv[:,:,2] = hsv[:,:,2] *self.random_brightness
+        for i in range(0,4):
+            row_range = []
+            row_range.append(random.randint(0,73))
+            upper_limit = row_range[0]+20 if row_range[0]+20 <83 else 83
+            row_range.append(random.randint(row_range[0]+10,upper_limit))
+            #for each row select upper and lower limit and brighten
+            patch_centre = random.randint(0,83)
+            for item in range(row_range[0],row_range[1]):
+                column_range = []
+
+                upper_limit = patch_centre+20 if patch_centre+20 <83 else 83
+                upper_limit = 83
+                lower_limit = 0
+                lower_limit = patch_centre-20 if patch_centre-20 >0 else 0
+                column_range.append(random.randint(lower_limit, patch_centre))
+                column_range.append(random.randint(patch_centre,upper_limit))
+                #print(column_range)
+                if i == 1:
+                    hsv[item,column_range[0]:column_range[1],2] -= random.uniform(0.5,0.7)
+                    hsv[item,column_range[0]:column_range[1],1] -= random.uniform(0.5,0.7)
+                    hsv[item,column_range[0]:column_range[1],0] += random.uniform(-0.5,0.5)
+                else:
+                    hsv[item,column_range[0]:column_range[1],2] += random.uniform(0.5,0.9)
+                    hsv[item,column_range[0]:column_range[1],1] -= random.uniform(0.4,0.9)
+                   
+                #hsv[item,column_range,0] += 1
+                #hsv[item,column_range,1] += 1
         hsv = np.clip(hsv,0,1)
+        #row_range = sorted(random.sample(range(1,84),2))
         rgb = (matplotlib.colors.hsv_to_rgb(hsv)*255).astype(int)
+
         rgb = np.moveaxis(rgb, -1, 0)
         dep = np.reshape(dep, (h, w))
         seg = np.reshape(seg, (h, w))
