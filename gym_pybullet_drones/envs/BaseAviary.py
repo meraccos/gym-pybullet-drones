@@ -16,8 +16,10 @@ from PIL import Image
 import itertools
 import glob
 import random
+import copy
 import cv2
 import matplotlib
+from blurgenerator import motion_blur
 class DroneModel(Enum):
     """Drone models enumeration class."""
 
@@ -431,9 +433,9 @@ class BaseAviary(gym.Env):
 
         """ Loads the vehicle model at every reset """
         #### Desired GV init position ##############################
-        self.gv_pos = [0.2,0.2,0]
+        self.gv_pos = [0.,0.,0]
         #### Desired velocity ######################################
-        self.gv_velocity = 18 - 18*np.random.rand()
+        self.gv_velocity = 18 - 36*np.random.rand()
         # self.gv_velocity = 1
         #### Max force to reach the desired velocity ###############
         self.gv_force_limit = 600
@@ -441,7 +443,8 @@ class BaseAviary(gym.Env):
         self.gv_joint = [1, 4]
         #### The helipad circle link id  ###########################
         self.gv_circleLink = 7
-        yaw = np.pi/3 * random.random() - np.pi/6
+        #yaw = #np.pi/3 * random.random() - np.pi/6
+        yaw = random.uniform(-0.261799,0.261799)
         self.vehicleId = p.loadURDF(self.urdf_file, basePosition = self.gv_pos, physicsClientId=self.CLIENT, baseOrientation = [0,0,np.sin(yaw/2),np.cos(yaw/2)])
         p.setJointMotorControl2(bodyUniqueId=self.vehicleId, 
                                 jointIndex=self.gv_joint[0], 
@@ -764,7 +767,7 @@ class BaseAviary(gym.Env):
         #random initial position
         self.INIT_XYZS_random = (-1+(2*np.random.rand(*self.INIT_XYZS.shape))) + self.INIT_XYZS
         #random inital velocity
-        #self.INIT_XYZS_random = self.INIT_XYZS
+        self.INIT_XYZS_random = self.INIT_XYZS
         #### Initialize/reset counters and zero-valued variables ###
         self.RESET_TIME = time.time()
         self.step_counter = 0
@@ -913,7 +916,8 @@ class BaseAviary(gym.Env):
             fov = 108
             img_res = self.IMG_RES_org
         else:
-            fov = 85.7
+            #fov = 85.7
+            fov = 50.76
             img_res = self.IMG_RES
 
 
@@ -967,14 +971,17 @@ class BaseAviary(gym.Env):
             rgb = self.distorted_img
         #rgb = rgb[:,40:280,:]
         #rgb = cv2.resize(rgb, (84,84), interpolation = cv2.INTER_LANCZOS4)
-        hsv = matplotlib.colors.rgb_to_hsv(rgb[:,:,0:3]/255)
-        hsv[:,:,2] = hsv[:,:,2] *random.uniform(0.1,1.5)
-        hsv = np.clip(hsv,0,1)
-        rgb = (matplotlib.colors.hsv_to_rgb(hsv)*255).astype(int)
-        rgb = np.moveaxis(rgb, -1, 0)
+        #hsv = matplotlib.colors.rgb_to_hsv(rgb[:,:,0:3]/255)
+        #hsv[:,:,2] = hsv[:,:,2] *random.uniform(0.1,1.5)
+        #hsv = np.clip(hsv,0,1)
+        #rgb = (matplotlib.colors.hsv_to_rgb(hsv)*255).astype(int)
+        #current_quat = copy.copy(self.quat[nth_drone, :])
+        #current_angle = p.getEulerFromQuaternion(current_quat)
         dep = np.reshape(dep, (h, w))
         seg = np.reshape(seg, (h, w))
-        
+        #rgb = motion_blur(rgb, size=8, angle=90+current_angle[2]).astype('float32')
+        #rgb = cv2.resize(rgb, (84,84), interpolation = cv2.INTER_LANCZOS4)
+        rgb = np.moveaxis(rgb, -1, 0)
         #im = Image.fromarray(rgb.transpose(1, 2, 0), 'RGBA')
         #im.save("your_file_2.png")
         #print('calling correct image?')
