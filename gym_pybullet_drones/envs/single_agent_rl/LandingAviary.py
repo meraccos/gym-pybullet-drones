@@ -12,7 +12,7 @@ class LandingAviary(BaseSingleAgentAviary):
     ################################################################################
     def __init__(self,
                  drone_model: DroneModel=DroneModel.CF2X,
-                 initial_xyzs=np.array([0.0,0.0,2.5]),
+                 initial_xyzs=np.array([5.0,7.0,2.5]),
                  initial_rpys=None,
                  physics: Physics=Physics.PYB_GND_DRAG_DW,
                  freq: int= 240,

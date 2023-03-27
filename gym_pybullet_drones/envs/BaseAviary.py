@@ -371,20 +371,22 @@ class BaseAviary(gym.Env):
             self.urdf_file = "/home/user/landing/g_vehicle/parsed.urdf"
         #### Path to the plane URDF file ###########################
         self.plane_path = '/home/user/miniconda3/envs/drqv2/lib/python3.8/site-packages/pybullet_data/plane.urdf'
-        # self.plane_path = '/home/user/miniconda3/lib/python3.7/site-packages/pybullet_data/plane.urdf'
+        #self.plane_path = '/home/user/miniconda3/lib/python3.7/site-packages/pybullet_data/plane.urdf'
         #### Path to the dtd file ###########################
         dtd_path = '/root/gym-pybullet-drones/gym_pybullet_drones/envs/single_agent_rl/dtd'
         #### Path to the object mtl file ###########################
         self.mtl_path = '/home/user/landing/g_vehicle/base.mtl'
         #### Path to real landing pad images #######################
         real_pad_path = random.choice(os.listdir("/home/user/landing/transformed"))
-
-        base_color = [str(round(random.uniform(0,1), 1)), str(round(random.uniform(0,1), 1)), str(round(random.uniform(0,1), 1)), 1.0] #['0.973', '0.973', '0.973', '1.0']
-        circle_color = [str(round(random.uniform(0,1), 1)), str(round(random.uniform(0,1), 1)), str(round(random.uniform(0,1), 1)), 1.0]
+        #base_color = [str(round(random.uniform(0,1), 1)), str(round(random.uniform(0,1), 1)), str(round(random.uniform(0,1), 1)), 1.0] #['0.973', '0.973', '0.973', '1.0']
+        #circle_color = [str(round(random.uniform(0,1), 1)), str(round(random.uniform(0,1), 1)), str(round(random.uniform(0,1), 1)), 1.0]
+        base_color = [str(0.00 + round(random.uniform(0,0.3), 2)), str(1.0 - round(random.uniform(0,0.4), 2)), str(0.0+ round(random.uniform(0,0.3), 2)), '1.0'] #['0.973', '0.973', '0.973', '1.0']
+        circle_color = [str(1.0 - round(random.uniform(0,0.4), 2)), str(0.0 + round(random.uniform(0,0.3), 2)), str(0.0+ round(random.uniform(0,0.3), 2)), '1.0']
+        black_color_base = round(random.uniform(0.1,0.35), 2)
+        blackh_color = [str(black_color_base + round(random.uniform(-0.1,0.1), 2)), str(black_color_base + round(random.uniform(-0.1,0.1), 2)), str(black_color_base + round(random.uniform(-0.1,0.1), 2)), '1.0']
         plane_color =  ['1.0', '1.0', '1.0', '1.0']
         grid_scale = ['1', '1']
         random_texture = True
-
 
         with open(self.xacro_file, 'r+') as mycar:
             lines = mycar.readlines()
@@ -393,10 +395,11 @@ class BaseAviary(gym.Env):
                     lines[index+1] = '    <color rgba="{} {} {} {}"/>\n'.format(*base_color)
                 if line == '  <material name="circle_color">\n':
                     lines[index+1] = '    <color rgba="{} {} {} {}"/>\n'.format(*circle_color)
-
+                if line == '  <material name="black_h">\n':
+                    lines[index+1] = '    <color rgba="{} {} {} {}"/>\n'.format(*blackh_color)
             mycar.seek(0)
+            mycar.truncate(0)
             mycar.writelines(lines)
-
 
         with open(self.plane_path, 'r+') as myplane:
             lines = myplane.readlines()
@@ -433,7 +436,7 @@ class BaseAviary(gym.Env):
 
         """ Loads the vehicle model at every reset """
         #### Desired GV init position ##############################
-        self.gv_pos = [0.,0.,0]
+        self.gv_pos = [5.,7.,0]
         #### Desired velocity ######################################
         self.gv_velocity = 18 - 36*np.random.rand()
         # self.gv_velocity = 1
@@ -767,7 +770,7 @@ class BaseAviary(gym.Env):
         #random initial position
         self.INIT_XYZS_random = (-1+(2*np.random.rand(*self.INIT_XYZS.shape))) + self.INIT_XYZS
         #random inital velocity
-        self.INIT_XYZS_random = self.INIT_XYZS
+        #self.INIT_XYZS_random = self.INIT_XYZS
         #### Initialize/reset counters and zero-valued variables ###
         self.RESET_TIME = time.time()
         self.step_counter = 0
@@ -795,7 +798,8 @@ class BaseAviary(gym.Env):
         p.setTimeStep(self.TIMESTEP, physicsClientId=self.CLIENT)
         p.setAdditionalSearchPath(pybullet_data.getDataPath(), physicsClientId=self.CLIENT)
         #### Load ground plane, drone and obstacles models #########
-        self.PLANE_ID = p.loadURDF("plane.urdf", physicsClientId=self.CLIENT)
+        globalScaling =  random.randint(1,20)
+        self.PLANE_ID = p.loadURDF("plane.urdf", physicsClientId=self.CLIENT, globalScaling = globalScaling)
         self.DRONE_IDS = np.array([p.loadURDF(os.path.dirname(os.path.abspath(__file__))+"/../assets/"+self.URDF,
                                               self.INIT_XYZS_random[i,:],
                                               p.getQuaternionFromEuler(self.INIT_RPYS[i,:]),
@@ -916,8 +920,8 @@ class BaseAviary(gym.Env):
             fov = 108
             img_res = self.IMG_RES_org
         else:
-            #fov = 85.7
-            fov = 50.76
+            fov = 85.7
+            #fov = 50.76
             img_res = self.IMG_RES
 
 
@@ -935,7 +939,7 @@ class BaseAviary(gym.Env):
 
         [w, h, rgb, dep, seg] = p.getCameraImage(width=img_res[0],
                                                  height=img_res[1],
-                                                 shadow=0,
+                                                 shadow=1,
                                                  viewMatrix=DRONE_CAM_VIEW,
                                                  projectionMatrix=DRONE_CAM_PRO,
                                                  flags=SEG_FLAG,
