@@ -429,7 +429,7 @@ class BaseAviary(gym.Env):
 
         if random_texture:
             texture_paths = glob.glob(os.path.join(dtd_path, '**', '*.jpg'), recursive=True)
-            random_texture_path = texture_paths[random.randint(0, 100)]
+            random_texture_path = texture_paths[random.randint(0, 200)]
             #random_texture_path ='/root/gym-pybullet-drones/gym_pybullet_drones/envs/single_agent_rl/dtd/asp_test.jpeg' 
             textureId = p.loadTexture(random_texture_path, physicsClientId=self.CLIENT)
             p.changeVisualShape(self.PLANE_ID, -1, textureUniqueId=textureId, physicsClientId=self.CLIENT)
@@ -448,6 +448,7 @@ class BaseAviary(gym.Env):
         self.gv_circleLink = 7
         #yaw = #np.pi/3 * random.random() - np.pi/6
         yaw = random.uniform(-0.261799,0.261799)
+
         self.vehicleId = p.loadURDF(self.urdf_file, basePosition = self.gv_pos, physicsClientId=self.CLIENT, baseOrientation = [0,0,np.sin(yaw/2),np.cos(yaw/2)])
         p.setJointMotorControl2(bodyUniqueId=self.vehicleId, 
                                 jointIndex=self.gv_joint[0], 
@@ -493,7 +494,7 @@ class BaseAviary(gym.Env):
     def step(self,
              action
              ):
-        for i in range(0,4):
+        for ii in range(0,4):
             """Advances the environment by one simulation step.
             
             Parameters
@@ -654,6 +655,7 @@ class BaseAviary(gym.Env):
             #### Advance the step counter ##############################
             #self.step_counter = self.step_counter + (1 * self.AGGR_PHY_STEPS)
             if done == True:
+                obs = self._computeObs(done = True)
                 break
 
         if self.distortion:

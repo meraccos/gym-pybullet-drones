@@ -6,11 +6,12 @@ from gym import spaces
 import pybullet as p
 import pybullet_data
 from ...utils.utils import rgb2gray
-
+import random
 from gym_pybullet_drones.envs.BaseAviary import DroneModel, Physics, ImageType, BaseAviary
 from gym_pybullet_drones.utils.utils import nnlsRPM
 from gym_pybullet_drones.control.DSLPIDControl import DSLPIDControl
 from gym_pybullet_drones.control.SimplePIDControl import SimplePIDControl
+import cv2
 
 from PIL import Image
 
@@ -266,6 +267,7 @@ class BaseSingleAgentAviary(BaseAviary):
                 v_unit_vector = np.zeros(3)
             #it is necessary to limit velocity changes in smooth manner, otherwise controller goes crazy
             target_vel = 0.15 * (self.SPEED_LIMIT * action[0:3]) + 0.85 * state[10:13]
+            #target_vel = target_vel + np.random.uniform(low=-0.1, high=0.1, size=(target_vel.shape))
             #target_vel = self.SPEED_LIMIT * action[0:3]
             rpm, _, _ = self.ctrl.computeControl(control_timestep=self.AGGR_PHY_STEPS*self.TIMESTEP, 
                                                  cur_pos=state[0:3],
@@ -342,7 +344,54 @@ class BaseSingleAgentAviary(BaseAviary):
     
     ################################################################################
 
-    def _computeObs(self):
+    def change_mean_std(self, image, new_mean=125, new_std=30):
+        img_float = image.astype(np.float32)
+        old_mean = np.mean(img_float)
+        old_std = np.std(img_float)
+        img_normalized = (img_float - old_mean) / old_std
+        img_scaled = (img_normalized * new_std) + new_mean
+        img_result = np.clip(img_scaled, 0, 255).astype(image.dtype)
+
+        return img_result
+
+    def find_spikes(self, img, spike_tr = 50):
+        spikes = []
+        hist, bins = np.histogram(img.ravel(), bins=256, range=[0, 256])
+
+        for i in range(len(hist)):
+            if i == 0 and hist[0] > hist[1] + spike_tr:
+                spikes.append(0)
+            
+            elif i == len(hist) and hist[-2] + spike_tr < hist[-1]:
+                spikes.append(255)
+            
+            elif hist[i-1] + spike_tr < hist[i] and hist[i] > hist[i+1] + spike_tr:
+                spikes.append(i)
+        return spikes
+
+    def distribute_spikes(self, img, spike_tr=50, blur=15):
+        spikes = self.find_spikes(img, spike_tr=spike_tr)
+        for y in range(len(img[0])):
+            for x in range(len(img[1])):
+                color = img[y][x]
+                if color in spikes:
+                    if color > blur:
+                        img[y][x] += random.randint(-blur,blur)
+                    else:
+                        img[y][x] += random.randint(-color,blur)
+        return img
+
+    def apply_clahe(self, image, clip_limit=2.0, tile_grid_size=(8, 8)):
+
+        if len(image.shape) == 3:
+            gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        else:
+            gray_image = image.copy()
+        clahe = cv2.createCLAHE(clipLimit=clip_limit, tileGridSize=tile_grid_size)
+        equalized_image = clahe.apply(gray_image)
+        return equalized_image
+
+    def _computeObs(self, done = False):
         """Returns the current observation of the environment.
 
         Returns
@@ -352,7 +401,7 @@ class BaseSingleAgentAviary(BaseAviary):
 
         """
         if self.OBS_TYPE == ObservationType.RGB:
-            if self.step_counter%self.IMG_CAPTURE_FREQ == 0: 
+            if self.step_counter%self.IMG_CAPTURE_FREQ == 0 or done == True: 
                 
                 self.rgb, self.dep[0], self.seg[0] = self._getDroneImages(0,
                                                                              segmentation=False
@@ -367,6 +416,10 @@ class BaseSingleAgentAviary(BaseAviary):
                                       frame_num=int(self.step_counter/self.IMG_CAPTURE_FREQ)
                                       )
                 self.rgb = rgb2gray(self.rgb)[None,:]
+                #print(self.rgb.shape)
+                #self.rgb = self.distribute_spikes(self.rgb)[None,:]
+                #self.rgb = self.apply_clahe(self.rgb.astype('uint8'))[None,:]
+                #self.rgb = self.change_mean_std(self.rgb)
             return self.rgb
         elif self.OBS_TYPE == ObservationType.KIN: 
             obs = self._clipAndNormalizeState(self._getDroneStateVector(0))

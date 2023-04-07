@@ -205,7 +205,7 @@ class LandingAviary(BaseSingleAgentAviary):
             reward_z = (30**normalized_distance_z -1)/(30 -1)
         else:
             reward_z = 0
-        combined_reward = 0.6*reward_xy + 1.0*reward_z_velocity#+ 0.2*reward_z + reward_z_velocity #np.tanh(reward_z_velocity) #+ reward_xy_velocity
+        combined_reward = 0.4*reward_xy + 1.0*reward_z_velocity#+ 0.2*reward_z + reward_z_velocity #np.tanh(reward_z_velocity) #+ reward_xy_velocity
         #print(distance_xy)
         #combined_reward = np.sum(combined_reward)
         #if combined_reward < 0:
@@ -214,7 +214,7 @@ class LandingAviary(BaseSingleAgentAviary):
         if drone_position[2] >= 0.275 and p.getContactPoints(bodyA=1, physicsClientId=self.CLIENT) != ():
             print('landed!')
             combined_reward =  140 + combined_reward
-        elif drone_position[2] < 0.275 and p.getContactPoints(bodyA=1, physicsClientId=self.CLIENT) != ():
+        elif drone_position[2]  < 0.275 and p.getContactPoints(bodyA=1, physicsClientId=self.CLIENT) != ():
             print('crashed!')
             combined_reward = -1 #normalized_distance_xy * 10 #0#5*distance_xy + combined_reward
         else:
