@@ -163,7 +163,7 @@ class BaseAviary(gym.Env):
         #### Create attributes for vision tasks ####################
         self.VISION_ATTR = vision_attributes
         if self.VISION_ATTR:
-            self.IMG_RES = np.array([84, 84])
+            self.IMG_RES = np.array([120, 120])
     
             ##parameter for distortion
             self.IMG_RES_org = [84, 84] #self.IMG_RES * 1.5
