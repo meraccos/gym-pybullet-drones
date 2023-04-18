@@ -20,6 +20,7 @@ import copy
 import cv2
 import matplotlib
 from blurgenerator import motion_blur
+import shutil
 class DroneModel(Enum):
     """Drone models enumeration class."""
 
@@ -163,7 +164,7 @@ class BaseAviary(gym.Env):
         #### Create attributes for vision tasks ####################
         self.VISION_ATTR = vision_attributes
         if self.VISION_ATTR:
-            self.IMG_RES = np.array([120, 120])
+            self.IMG_RES = np.array([84, 84])
     
             ##parameter for distortion
             self.IMG_RES_org = [84, 84] #self.IMG_RES * 1.5
@@ -201,6 +202,7 @@ class BaseAviary(gym.Env):
         if self.GUI:
             #### With debug GUI ########################################
             self.CLIENT = p.connect(p.GUI) # p.connect(p.GUI, options="--opengl2")
+            p.setPhysicsEngineParameter(enableFileCaching=0)
             for i in [p.COV_ENABLE_RGB_BUFFER_PREVIEW, p.COV_ENABLE_DEPTH_BUFFER_PREVIEW, p.COV_ENABLE_SEGMENTATION_MARK_PREVIEW]:
                 p.configureDebugVisualizer(i, 0, physicsClientId=self.CLIENT)
             p.resetDebugVisualizerCamera(cameraDistance=3,
@@ -221,6 +223,7 @@ class BaseAviary(gym.Env):
         else:
             #### Without debug GUI #####################################
             self.CLIENT = p.connect(p.DIRECT)
+            p.setPhysicsEngineParameter(enableFileCaching=0)
             #### Uncomment the following line to use EGL Render Plugin #
             #### Instead of TinyRender (CPU-based) in PYB's Direct mode
             # if platform == "linux": p.setAdditionalSearchPath(pybullet_data.getDataPath()); plugin = p.loadPlugin(egl.get_filename(), "_eglRendererPlugin"); print("plugin=", plugin)
@@ -348,27 +351,149 @@ class BaseAviary(gym.Env):
         """ Returns the helipad center position and orientation """
         
         #return ((0.10045686084702735, 0.12811826793718173, 0.08182789495970491), (-3.1815767102318115e-05, 0.00013119084611442516, -0.05788216504518402, 0.0))#p.getLinkState(self.vehicleId, self.gv_circleLink, physicsClientId=self.CLIENT)[0:2] #(0.10045686084702735, 0.12811826793718173, 0.08182789495970491) p.getLinkState(self.vehicleId, self.gv_circleLink, physicsClientId=self.CLIENT)[0:2]
-        return p.getLinkState(self.vehicleId, self.gv_circleLink, physicsClientId=self.CLIENT)[0:2] #(0.10045686084702735, 0.12811826793718173, 0.08182789495970491) p.getLinkState(self.vehicleId, self.gv_circleLink, physicsClientId=self.CLIENT)[0:2]
+        return p.getLinkState(self.vehicleId, 7, physicsClientId=self.CLIENT)[0:2] #(0.10045686084702735, 0.12811826793718173, 0.08182789495970491) p.getLinkState(self.vehicleId, self.gv_circleLink, physicsClientId=self.CLIENT)[0:2]
 
 
     def _get_vehicle_velocity(self):
         """ Returns the linear and angular velocity of the vehicle """
         #return ((0.10045686084702735, 0.12811826793718173, 0.08182789495970491), (-3.1815767102318115e-05, 0.00013119084611442516, -0.05788216504518402)) #p.getBaseVelocity(self.vehicleId,physicsClientId=self.CLIENT)
         return p.getBaseVelocity(self.vehicleId,physicsClientId=self.CLIENT)
-    
+
+    def copy_texture_files(self, new_image_name):
+        # Read the original MTL file
+        with open(self.original_base_mtl, 'r') as f:
+            mtl_contents = f.readlines()
+        
+        # Replace the map_Kd line with the new image name
+        new_map_kd_line = "  map_Kd ../../transformed_2/{}\n".format(new_image_name)
+        for i, line in enumerate(mtl_contents):
+            if line.startswith("  map_Kd"):
+                mtl_contents[i] = new_map_kd_line
+                break
+
+        # Write the updated contents to the new MTL file
+        with open(self.new_base_mtl, 'w') as f:
+            f.writelines(mtl_contents)
+
+        
+        # Read the original OBJ file
+        with open(self.original_base_obj, 'r') as f:
+            obj_contents = f.readlines()
+
+        # Replace the mtllib line with the updated value
+        new_mtllib_line = "mtllib base{}.mtl\n".format(self.urdf_necessary_not_sure_why_counter)
+        for i, line in enumerate(obj_contents):
+            if line.startswith("mtllib"):
+                obj_contents[i] = new_mtllib_line
+                break
+
+        # Write the updated contents to the new OBJ file
+        with open(self.new_base_obj, 'w') as f:
+            f.writelines(obj_contents)
+
+
     def _randomizer(self, init_seed = 1):
+        #### Path to GV URDF file ##################################
+        car_version = 5
+        self.xacro_file = "/home/user/landing/g_vehicle/car_v{}.urdf".format(car_version)  # car_v2: sim, car_v4: real landing pad images
+        #### Path to the file to be parsed #########################
+        self.urdf_necessary_not_sure_why_counter = (1+self.urdf_necessary_not_sure_why_counter) % 1000
+        self.urdf_file = "/home/user/landing/g_vehicle/parsed_files_2/parsed_{}_real_pad.urdf".format(self.urdf_necessary_not_sure_why_counter)
+        self.new_base_mtl = "/home/user/landing/g_vehicle/parsed_files_2/base{}.mtl".format(self.urdf_necessary_not_sure_why_counter)
+        self.new_base_obj = "/home/user/landing/g_vehicle/parsed_files_2/base{}.obj".format(self.urdf_necessary_not_sure_why_counter)
+        self.original_base_mtl ="/home/user/landing/g_vehicle/base.mtl"
+        self.original_base_obj ="/home/user/landing/g_vehicle/base.obj"
+        real_pad_path = random.choice(os.listdir("/home/user/landing/transformed_2"))
+        print(real_pad_path)
+        with open(self.xacro_file, 'r+') as mycar:
+            lines = mycar.readlines()
+            for index, line in enumerate(lines):
+                if '<mesh filename=' in line:
+                    lines[index] = '        <mesh filename="base{}.obj" scale="3.375 3.375 1"/>\n'.format(self.urdf_necessary_not_sure_why_counter)
+                    break
+            mycar.seek(0)
+            mycar.truncate(0)
+            mycar.writelines(lines)
+        self.copy_texture_files(real_pad_path)
+        
+        #### Path to the dtd file ###########################
+        dtd_path = '/root/gym-pybullet-drones/gym_pybullet_drones/envs/single_agent_rl/dtd'
+        random_texture = True
+        #### Path to real landing pad images #######################
+        # random.seed(544)
+        #real_pad_path = random.choice(os.listdir("/home/user/landing/transformed_2"))
+        #real_pad_path = 'img_000860.png'
+        #real_pad_path = 'img_000430.png'
+        # print(real_pad_path)
+        # exit()
+        #### Desired GV init position ##############################
+        self.gv_pos = [5.,7.,0]
+        #### Desired velocity ######################################
+        #self.gv_velocity = 18 - 36*np.random.rand()
+        self.gv_velocity = 18 - 18*np.random.rand()
+        #self.gv_velocity = 0 
+        #### GV starting yaw angle #################################
+        yaw = random.uniform(-np.pi/12.0, np.pi/12.0)
+        
+        base_color = [1.0, 1.0, 1.0, 1.0]
+        circle_color = [1.0, 0.1, 0.1, 1.0]
+        plane_color = [1.0, 1.0, 1.0, 1.0]
+
+        parser_command = 'xacro ' + self.xacro_file + ' > ' + self.urdf_file
+        os.system(parser_command)
+
+        if random_texture:
+            texture_paths = glob.glob(os.path.join(dtd_path, '**', '*.jpg'), recursive=True)
+            random_texture_path = texture_paths[random.randint(0, 200)]
+            textureId = p.loadTexture(random_texture_path, physicsClientId=self.CLIENT)
+
+            p.changeVisualShape(self.PLANE_ID, -1, rgbaColor = plane_color, textureUniqueId=textureId, physicsClientId=self.CLIENT)
+
+        
+        self.vehicleId = p.loadURDF(self.urdf_file, basePosition = self.gv_pos, physicsClientId=self.CLIENT, baseOrientation = [0,0,np.sin(yaw/2),np.cos(yaw/2)])
+        pad_path = "/home/user/landing/transformed_2/" + real_pad_path
+        # exit()
+        #pad_texture = p.loadTexture(pad_path, physicsClientId=self.CLIENT)
+        #if car_version == 2:
+        #    p.changeVisualShape(objectUniqueId = self.vehicleId, linkIndex = 8, textureUniqueId= pad_texture)
+        
+        #elif car_version == 4:
+        #    p.changeVisualShape(objectUniqueId = self.vehicleId, linkIndex = 8, textureUniqueId= pad_texture)
+        
+        # p.changeVisualShape(objectUniqueId = self.vehicleId, linkIndex =9, rgbaColor = base_color, textureUniqueId= pad_texture, )
+        
+
+        # p.changeVisualShape(objectUniqueId = self.vehicleId, linkIndex = 8, rgbaColor = base_color, textureUniqueId= pad_texture, globalScaling = 3)
+        #p.changeVisualShape(objectUniqueId = self.vehicleId, linkIndex = 8, rgbaColor = base_color, textureUniqueId= pad_texture, specularColor = [1.0,1.0,1.0,1.0])
+
+        p.setJointMotorControl2(bodyUniqueId=self.vehicleId, 
+                                jointIndex=1, 
+                                controlMode=p.VELOCITY_CONTROL, 
+                                targetVelocity=self.gv_velocity, 
+                                force=600,
+                                physicsClientId=self.CLIENT)
+        p.setJointMotorControl2(bodyUniqueId=self.vehicleId, 
+                                jointIndex=4, 
+                                controlMode=p.VELOCITY_CONTROL, 
+                                targetVelocity=self.gv_velocity, 
+                                force=600,
+                                physicsClientId=self.CLIENT)
+
+    
+    def _randomizer_legacy(self, init_seed = 1):
         #random.seed(2)
         #### Initialize the GV parameters ##########################
         #### Path to GV URDF file ##################################
         flag = random.random()
         if flag < 1:
-            self.xacro_file = "/home/user/landing/g_vehicle/car_v2.urdf" 
-            self.urdf_necessary_not_sure_why_counter = (1+self.urdf_necessary_not_sure_why_counter) % 100
-            self.urdf_file = "/home/user/landing/g_vehicle/parsed_{}.urdf".format(self.urdf_necessary_not_sure_why_counter)
+            self.xacro_file = "/home/user/landing/g_vehicle/car_v2_textured.urdf" 
+            self.urdf_necessary_not_sure_why_counter = (1+self.urdf_necessary_not_sure_why_counter) % 1000
+            self.urdf_file = "/home/user/landing/g_vehicle/parsed_{}_textured.urdf".format(self.urdf_necessary_not_sure_why_counter)
         else:
             self.xacro_file = "/home/user/landing/g_vehicle/car_v4.urdf"  # car_v2: sim, car_v4: real landing pad images
             #### Path to the file to be parsed #########################
-            self.urdf_file = "/home/user/landing/g_vehicle/parsed.urdf"
+            self.urdf_necessary_not_sure_why_counter = (1+self.urdf_necessary_not_sure_why_counter) % 1000
+            self.urdf_file = "/home/user/landing/g_vehicle/parsed_{}_real_pad.urdf".format(self.urdf_necessary_not_sure_why_counter)
         #### Path to the plane URDF file ###########################
         self.plane_path = '/home/user/miniconda3/envs/drqv2/lib/python3.8/site-packages/pybullet_data/plane.urdf'
         #self.plane_path = '/home/user/miniconda3/lib/python3.7/site-packages/pybullet_data/plane.urdf'
@@ -377,7 +502,7 @@ class BaseAviary(gym.Env):
         #### Path to the object mtl file ###########################
         self.mtl_path = '/home/user/landing/g_vehicle/base.mtl'
         #### Path to real landing pad images #######################
-        real_pad_path = random.choice(os.listdir("/home/user/landing/transformed"))
+        real_pad_path = random.choice(os.listdir("/home/user/landing/transformed_2"))
         #base_color = [str(round(random.uniform(0,1), 1)), str(round(random.uniform(0,1), 1)), str(round(random.uniform(0,1), 1)), 1.0] #['0.973', '0.973', '0.973', '1.0']
         #circle_color = [str(round(random.uniform(0,1), 1)), str(round(random.uniform(0,1), 1)), str(round(random.uniform(0,1), 1)), 1.0]
         base_color = [str(0.00 + round(random.uniform(0,0.3), 2)), str(1.0 - round(random.uniform(0,0.4), 2)), str(0.0+ round(random.uniform(0,0.3), 2)), '1.0'] #['0.973', '0.973', '0.973', '1.0']
@@ -411,17 +536,6 @@ class BaseAviary(gym.Env):
 
             myplane.seek(0)
             lines = myplane.writelines(lines)
-
-
-        with open(self.mtl_path, 'r+') as material:
-            lines = material.readlines()          
-            for index, line in enumerate(lines):
-                if 'map_Kd' in line:
-                    # lines[index] = '  map_Kd ../transformed/{}'.format(str(real_pad_path).split('.'[0])) 
-                    lines[index] = '  map_Kd ../transformed/{}'.format(real_pad_path) 
-                
-            material.seek(0)
-            lines = material.writelines(lines) 
 
 
         parser_command = 'xacro ' + self.xacro_file + ' > ' + self.urdf_file
@@ -475,7 +589,10 @@ class BaseAviary(gym.Env):
             in each subclass for its format.
 
         """
+        p.setPhysicsEngineParameter(enableFileCaching=0)
         p.resetSimulation(physicsClientId=self.CLIENT)
+        p.setPhysicsEngineParameter(enableFileCaching=0)
+        p.removeAllUserDebugItems(physicsClientId=self.CLIENT)
         #### Housekeeping ##########################################
         self._housekeeping()
         self._randomizer()
@@ -938,7 +1055,30 @@ class BaseAviary(gym.Env):
                                                       farVal=1000.0
                                                       )
         SEG_FLAG = p.ER_SEGMENTATION_MASK_OBJECT_AND_LINKINDEX if segmentation else p.ER_NO_SEGMENTATION_MASK
-
+        # light_position = [random.uniform(-5, 5) for _ in range(3)]
+        # light_color = [random.uniform(0, 1) for _ in range(3)]
+        # light_distance = random.uniform(1, 10)
+        # light_direction = [random.uniform(-1, 1) for _ in range(3)]
+        # light_target = [random.uniform(-2, 2) for _ in range(3)]
+        # specular_color = [random.uniform(0, 1) for _ in range(3)]
+        # lightAmbientCoeff = random.uniform(-1, 1)
+        # lightDiffuseCoeff = random.uniform(-1, 1)
+        # lightSpecularCoeff = random.uniform(-1, 1)
+        # [w, h, rgb, dep, seg] = p.getCameraImage(width=img_res[0],
+        #                                          height=img_res[1],
+        #                                          shadow=1,
+        #                                          viewMatrix=DRONE_CAM_VIEW,
+        #                                          projectionMatrix=DRONE_CAM_PRO,
+        #                                          flags=SEG_FLAG,
+        #                                          physicsClientId=self.CLIENT,
+        #                                          lightDirection = light_direction,
+        #                                          lightColor = light_color,
+        #                                          lightDistance = light_distance,
+        #                                          lightAmbientCoeff = lightAmbientCoeff,
+        #                                          lightDiffuseCoeff = lightDiffuseCoeff,
+        #                                          lightSpecularCoeff = lightSpecularCoeff,
+        #                                          renderer = 1
+        #                                          )
         [w, h, rgb, dep, seg] = p.getCameraImage(width=img_res[0],
                                                  height=img_res[1],
                                                  shadow=1,
@@ -947,6 +1087,7 @@ class BaseAviary(gym.Env):
                                                  flags=SEG_FLAG,
                                                  physicsClientId=self.CLIENT
                                                  )
+
 
 
         # DRONE_CAM_PRO =  p.computeProjectionMatrixFOV(fov=60.0,
