@@ -21,6 +21,7 @@ import cv2
 import matplotlib
 from blurgenerator import motion_blur
 import shutil
+import tempfile
 class DroneModel(Enum):
     """Drone models enumeration class."""
 
@@ -122,6 +123,7 @@ class BaseAviary(gym.Env):
         self.NUM_DRONES = num_drones
         self.NEIGHBOURHOOD_RADIUS = neighbourhood_radius
         #### Options ###############################################
+        self.temp_files = []
         self.DRONE_MODEL = drone_model
         self.GUI = gui
         self.RECORD = record
@@ -272,7 +274,7 @@ class BaseAviary(gym.Env):
         ############################################################
         self.distortion = False
         self.distorted_points, self.image_points = self._initialize_image_distortion()
-        
+        self.past_ugv_position = np.array([0,0,0])
         #### Housekeeping ##########################################
         self._housekeeping()
         #### Update and store the drones kinematic information #####
@@ -352,12 +354,94 @@ class BaseAviary(gym.Env):
         
         #return ((0.10045686084702735, 0.12811826793718173, 0.08182789495970491), (-3.1815767102318115e-05, 0.00013119084611442516, -0.05788216504518402, 0.0))#p.getLinkState(self.vehicleId, self.gv_circleLink, physicsClientId=self.CLIENT)[0:2] #(0.10045686084702735, 0.12811826793718173, 0.08182789495970491) p.getLinkState(self.vehicleId, self.gv_circleLink, physicsClientId=self.CLIENT)[0:2]
         return p.getLinkState(self.vehicleId, 7, physicsClientId=self.CLIENT)[0:2] #(0.10045686084702735, 0.12811826793718173, 0.08182789495970491) p.getLinkState(self.vehicleId, self.gv_circleLink, physicsClientId=self.CLIENT)[0:2]
+    
+    def get_vehicle_position(self):
+        """ Returns the helipad center position and orientation """
+        
+        #return ((0.10045686084702735, 0.12811826793718173, 0.08182789495970491), (-3.1815767102318115e-05, 0.00013119084611442516, -0.05788216504518402, 0.0))#p.getLinkState(self.vehicleId, self.gv_circleLink, physicsClientId=self.CLIENT)[0:2] #(0.10045686084702735, 0.12811826793718173, 0.08182789495970491) p.getLinkState(self.vehicleId, self.gv_circleLink, physicsClientId=self.CLIENT)[0:2]
+        return p.getLinkState(self.vehicleId, 7, physicsClientId=self.CLIENT)[0:2] #(0.10045686084702735, 0.12811826793718173, 0.08182789495970491) p.getLinkState(self.vehicleId, self.gv_circleLink, physicsClientId=self.CLIENT)[0:2]
 
 
     def _get_vehicle_velocity(self):
         """ Returns the linear and angular velocity of the vehicle """
         #return ((0.10045686084702735, 0.12811826793718173, 0.08182789495970491), (-3.1815767102318115e-05, 0.00013119084611442516, -0.05788216504518402)) #p.getBaseVelocity(self.vehicleId,physicsClientId=self.CLIENT)
         return p.getBaseVelocity(self.vehicleId,physicsClientId=self.CLIENT)
+
+    def get_vehicle_velocity(self):
+        """ Returns the linear and angular velocity of the vehicle """
+        #return ((0.10045686084702735, 0.12811826793718173, 0.08182789495970491), (-3.1815767102318115e-05, 0.00013119084611442516, -0.05788216504518402)) #p.getBaseVelocity(self.vehicleId,physicsClientId=self.CLIENT)
+        return p.getBaseVelocity(self.vehicleId,physicsClientId=self.CLIENT)
+
+
+    # Function to generate random colors
+    def random_color(self):
+        return [random.random(), random.random(), random.random(), 1]
+
+    def create_obj_file(self, vertices, indices):
+        content = "g random_shape\n"
+        for vertex in range(0, len(vertices), 3):
+            content += f"v {vertices[vertex]} {vertices[vertex+1]} {vertices[vertex+2]}\n"
+
+        for index in range(0, len(indices), 3):
+            content += f"f {indices[index]+1} {indices[index+1]+1} {indices[index+2]+1}\n"
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".obj", delete=False) as f:
+            f.write(content)
+            return f.name
+
+    def create_random_arbitrary_shape(self):
+        # Generate random vertices and indices
+        vertices = []
+        for _ in range(random.randint(4, 10)):
+            vertex = [random.uniform(-1, 1), random.uniform(-1, 1), random.uniform(-1, 1)]
+            vertices.extend(vertex)
+
+        indices = []
+        for _ in range(random.randint(2, len(vertices)//3)):
+            index = random.sample(range(len(vertices)//3), 3)
+            indices.extend(index)
+
+        # Create a temporary OBJ file with the random shape
+        obj_file = self.create_obj_file(vertices, indices)
+        
+        color = self.random_color()
+
+        shape = p.createCollisionShape(p.GEOM_MESH, fileName=obj_file, meshScale=[1, 1, 1])
+        visual_shape = p.createVisualShape(p.GEOM_MESH, fileName=obj_file, meshScale=[1, 1, 1], rgbaColor=color)
+
+
+        return visual_shape, obj_file
+
+    # Function to create random objects
+    def create_random_object(self):
+        #obj_type = random.choice(["sphere", "cube", "cylinder", "capsule", "cone"])
+        obj_type = random.choice(["sphere", "cube", "cylinder", "capsule"])
+        if obj_type == "sphere":
+            radius = random.uniform(0.1, 0.5)
+            shape = p.createCollisionShape(p.GEOM_SPHERE, radius=radius, physicsClientId=self.CLIENT)
+            visual_shape = p.createVisualShape(p.GEOM_SPHERE, radius=radius, rgbaColor=self.random_color(), physicsClientId=self.CLIENT)
+        elif obj_type == "cube":
+            half_extents = [random.uniform(0.1, 0.5) for _ in range(3)]
+            shape = p.createCollisionShape(p.GEOM_BOX, halfExtents=half_extents, physicsClientId=self.CLIENT)
+            visual_shape = p.createVisualShape(p.GEOM_BOX, halfExtents=half_extents, rgbaColor=self.random_color(), physicsClientId=self.CLIENT)
+        elif obj_type == "cylinder":
+            radius = random.uniform(0.1, 0.5)
+            height = random.uniform(0.1, 1)
+            shape = p.createCollisionShape(p.GEOM_CYLINDER, radius=radius, height=height)
+            visual_shape = p.createVisualShape(p.GEOM_CYLINDER, radius=radius, length=height, rgbaColor=self.random_color(), physicsClientId=self.CLIENT)
+        elif obj_type == "capsule":
+            radius = random.uniform(0.1, 0.5)
+            height = random.uniform(0.1, 1)
+            shape = p.createCollisionShape(p.GEOM_CAPSULE, radius=radius, height=height, physicsClientId=self.CLIENT)
+            visual_shape = p.createVisualShape(p.GEOM_CAPSULE, radius=radius, length=height, rgbaColor=self.random_color(), physicsClientId=self.CLIENT)
+        #else:  # obj_type == "cone"
+        #    radius = random.uniform(0.1, 0.5)
+        #    height = random.uniform(0.1, 1)
+        #    shape = p.createCollisionShape(p.GEOM_CONE, radius=radius, height=height)
+        #    visual_shape = p.createVisualShape(p.GEOM_CONE, radius=radius, length=height, rgbaColor=self.random_color())
+
+        return shape, visual_shape
+
 
     def copy_texture_files(self, new_image_name):
         # Read the original MTL file
@@ -392,9 +476,9 @@ class BaseAviary(gym.Env):
             f.writelines(obj_contents)
 
 
-    def _randomizer(self, init_seed = 1):
+    def _randomizer_new(self, init_seed = 1):
         #### Path to GV URDF file ##################################
-        car_version = 5
+        car_version = 2
         self.xacro_file = "/home/user/landing/g_vehicle/car_v{}.urdf".format(car_version)  # car_v2: sim, car_v4: real landing pad images
         #### Path to the file to be parsed #########################
         self.urdf_necessary_not_sure_why_counter = (1+self.urdf_necessary_not_sure_why_counter) % 1000
@@ -418,7 +502,7 @@ class BaseAviary(gym.Env):
         
         #### Path to the dtd file ###########################
         dtd_path = '/root/gym-pybullet-drones/gym_pybullet_drones/envs/single_agent_rl/dtd'
-        random_texture = True
+        random_texture = False
         #### Path to real landing pad images #######################
         # random.seed(544)
         #real_pad_path = random.choice(os.listdir("/home/user/landing/transformed_2"))
@@ -430,8 +514,8 @@ class BaseAviary(gym.Env):
         self.gv_pos = [5.,7.,0]
         #### Desired velocity ######################################
         #self.gv_velocity = 18 - 36*np.random.rand()
-        self.gv_velocity = 18 - 18*np.random.rand()
-        #self.gv_velocity = 0 
+        # self.gv_velocity = 18 - 18*np.random.rand()
+        self.gv_velocity = 0 
         #### GV starting yaw angle #################################
         yaw = random.uniform(-np.pi/12.0, np.pi/12.0)
         
@@ -451,7 +535,7 @@ class BaseAviary(gym.Env):
 
         
         self.vehicleId = p.loadURDF(self.urdf_file, basePosition = self.gv_pos, physicsClientId=self.CLIENT, baseOrientation = [0,0,np.sin(yaw/2),np.cos(yaw/2)])
-        pad_path = "/home/user/landing/transformed_2/" + real_pad_path
+        #pad_path = "/home/user/landing/transformed_2/" + real_pad_path
         # exit()
         #pad_texture = p.loadTexture(pad_path, physicsClientId=self.CLIENT)
         #if car_version == 2:
@@ -465,6 +549,18 @@ class BaseAviary(gym.Env):
 
         # p.changeVisualShape(objectUniqueId = self.vehicleId, linkIndex = 8, rgbaColor = base_color, textureUniqueId= pad_texture, globalScaling = 3)
         #p.changeVisualShape(objectUniqueId = self.vehicleId, linkIndex = 8, rgbaColor = base_color, textureUniqueId= pad_texture, specularColor = [1.0,1.0,1.0,1.0])
+        # Create the randomly shaped and colored objects
+        num_objects = random.randint(5, 25)
+        for _ in range(num_objects):
+            #visual_shape, obj_file = self.create_random_arbitrary_shape()
+            #self.temp_files.append(obj_file)
+            visual_shape, _ = self.create_random_object()
+
+            position = [self.gv_pos[0] + random.uniform(-5, 20), self.gv_pos[1] + random.uniform(-5, 5), random.uniform(-1, 0)]
+            orientation = p.getQuaternionFromEuler([random.uniform(0, np.pi) for _ in range(3)])
+
+            p.createMultiBody(baseMass=0, baseCollisionShapeIndex=-1, baseVisualShapeIndex=visual_shape,
+                            basePosition=position, baseOrientation=orientation, physicsClientId=self.CLIENT)
 
         p.setJointMotorControl2(bodyUniqueId=self.vehicleId, 
                                 jointIndex=1, 
@@ -480,20 +576,20 @@ class BaseAviary(gym.Env):
                                 physicsClientId=self.CLIENT)
 
     
-    def _randomizer_legacy(self, init_seed = 1):
+    def _randomizer(self, init_seed = 1):
         #random.seed(2)
         #### Initialize the GV parameters ##########################
         #### Path to GV URDF file ##################################
-        flag = random.random()
-        if flag < 1:
-            self.xacro_file = "/home/user/landing/g_vehicle/car_v2_textured.urdf" 
-            self.urdf_necessary_not_sure_why_counter = (1+self.urdf_necessary_not_sure_why_counter) % 1000
-            self.urdf_file = "/home/user/landing/g_vehicle/parsed_{}_textured.urdf".format(self.urdf_necessary_not_sure_why_counter)
-        else:
-            self.xacro_file = "/home/user/landing/g_vehicle/car_v4.urdf"  # car_v2: sim, car_v4: real landing pad images
-            #### Path to the file to be parsed #########################
-            self.urdf_necessary_not_sure_why_counter = (1+self.urdf_necessary_not_sure_why_counter) % 1000
-            self.urdf_file = "/home/user/landing/g_vehicle/parsed_{}_real_pad.urdf".format(self.urdf_necessary_not_sure_why_counter)
+        # flag = random.random()
+        # if flag < 1:
+        self.xacro_file = "/home/user/landing/g_vehicle/car_v2_legacy.urdf" 
+        self.urdf_necessary_not_sure_why_counter = (1+self.urdf_necessary_not_sure_why_counter) % 1000
+        self.urdf_file = "/home/user/landing/g_vehicle/parsed_{}.urdf".format(self.urdf_necessary_not_sure_why_counter)
+        # else:
+        #     self.xacro_file = "/home/user/landing/g_vehicle/car_v4.urdf"  # car_v2: sim, car_v4: real landing pad images
+        #     #### Path to the file to be parsed #########################
+        #     self.urdf_necessary_not_sure_why_counter = (1+self.urdf_necessary_not_sure_why_counter) % 1000
+        #     self.urdf_file = "/home/user/landing/g_vehicle/parsed_{}_real_pad.urdf".format(self.urdf_necessary_not_sure_why_counter)
         #### Path to the plane URDF file ###########################
         self.plane_path = '/home/user/miniconda3/envs/drqv2/lib/python3.8/site-packages/pybullet_data/plane.urdf'
         #self.plane_path = '/home/user/miniconda3/lib/python3.7/site-packages/pybullet_data/plane.urdf'
@@ -511,7 +607,7 @@ class BaseAviary(gym.Env):
         blackh_color = [str(black_color_base + round(random.uniform(-0.1,0.1), 2)), str(black_color_base + round(random.uniform(-0.1,0.1), 2)), str(black_color_base + round(random.uniform(-0.1,0.1), 2)), '1.0']
         plane_color =  ['1.0', '1.0', '1.0', '1.0']
         grid_scale = ['1', '1']
-        random_texture = True
+        random_texture = False
 
         with open(self.xacro_file, 'r+') as mycar:
             lines = mycar.readlines()
@@ -551,9 +647,10 @@ class BaseAviary(gym.Env):
         """ Loads the vehicle model at every reset """
         #### Desired GV init position ##############################
         self.gv_pos = [5.,7.,0]
+        self.past_ugv_position = self.gv_pos
+        #self.gv_pos = [0.,0.,0]
         #### Desired velocity ######################################
-        self.gv_velocity = 18 - 36*np.random.rand()
-        # self.gv_velocity = 1
+        self.gv_velocity = 18 - 18*np.random.rand()
         #### Max force to reach the desired velocity ###############
         self.gv_force_limit = 600
         #### The wheel bar joints ##################################
@@ -603,6 +700,7 @@ class BaseAviary(gym.Env):
         ### Reloads the ground vehicle ###
         #self._load_ground_vehicle()
         #### Return the initial observation ########################
+        self.uav_past_position =  np.array(self.pos[0,:])
         return self._computeObs()
 
     
@@ -736,6 +834,13 @@ class BaseAviary(gym.Env):
                 #### Between aggregate steps for certain types of update ###
                 if self.AGGR_PHY_STEPS > 1 and self.PHYSICS in [Physics.DYN, Physics.PYB_GND, Physics.PYB_DRAG, Physics.PYB_DW, Physics.PYB_GND_DRAG_DW]:
                     self._updateAndStoreKinematicInformation()
+                    #plot trajectories for UGV and UAV
+                    # ugv_position = self.get_vehicle_position()[0]
+                    # p.addUserDebugLine(np.array(self.past_ugv_position), np.array(ugv_position), [1, 0, 0], 5.0, physicsClientId=self.CLIENT)
+                    # self.past_ugv_position = copy.deepcopy(ugv_position)
+               
+                    # p.addUserDebugLine(np.array(self.uav_past_position), np.array(self.pos[0,:]), [0, 1, 0], 5.0, physicsClientId=self.CLIENT)
+                    # self.uav_past_position =  np.array(self.pos[0,:])
                 #### Step the simulation using the desired physics update ##
                 for i in range (self.NUM_DRONES):
                     if self.PHYSICS == Physics.PYB:
@@ -891,6 +996,8 @@ class BaseAviary(gym.Env):
         #random inital velocity
         #self.INIT_XYZS_random = self.INIT_XYZS
         #### Initialize/reset counters and zero-valued variables ###
+        for obj_file in self.temp_files:
+            os.remove(obj_file)
         self.RESET_TIME = time.time()
         self.step_counter = 0
         self.first_render_call = True

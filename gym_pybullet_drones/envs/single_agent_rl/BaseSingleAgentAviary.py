@@ -221,6 +221,7 @@ class BaseSingleAgentAviary(BaseAviary):
             commanded to the 4 motors of each drone.
 
         """
+        # action = np.append(action, -0.45)      # meraj
         if self.ACT_TYPE == ActionType.TUN:
             self.ctrl.setPIDCoefficients(p_coeff_pos=(action[0]+1)*self.TUNED_P_POS,
                                          i_coeff_pos=(action[1]+1)*self.TUNED_I_POS,
